@@ -1,0 +1,64 @@
+{
+    "status": "success",
+    "message": "Registro exitoso",
+    "user": {
+        "nickname": "fregmeg02",
+        "email": "fregado@gmail.com",
+        "password": "$2b$10$Hr/QX4h/V1ftLTvmLIBBZeluUeVJ2Pk/AqW06kP0bm3j730K.10ta",
+        "masterLanguage": "Spanish",
+        "masterLanguage2": null,
+        "learningLanguage": "French",
+        "learningLanguage2": null,
+        "learningLanguage3": null,
+        "role": "role_user",
+        "image": "default.png",
+        "_id": "6799ef569f87066bcd6c46dd",
+        "created_at": "2025-01-29T09:05:26.872Z",
+        "__v": 0
+    }
+} Tortuga19
+"token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjY3OTllZjU2OWY4NzA2NmJjZDZjNDZkZCIsIm5pY2tuYW1lIjoiZnJlZ21lZzAyIiwiZW1haWwiOiJmcmVnYWRvQGdtYWlsLmNvbSIsIm1hc3Rlckxhbmd1YWdlIjoiU3BhbmlzaCIsIm1hc3Rlckxhbmd1YWdlMiI6bnVsbCwibGVhcm5pbmdMYW5ndWFnZSI6IkZyZW5jaCIsImxlYXJuaW5nTGFuZ3VhZ2UyIjpudWxsLCJsZWFybmluZ0xhbmd1YWdlMyI6bnVsbCwicm9sZSI6InJvbGVfdXNlciIsImltYWdlIjoiZGVmYXVsdC5wbmciLCJjcmVhdGVkX2F0IjoiMjAyNS0wMS0yOVQwOTowNToyNi44NzJaIiwiaWF0IjoxNzM4MTQxODYwLCJleCI6MTczOTAwNTg2MH0.hQbN_952FhkwDwZB_s0RCb3p9lmGVCcBmSHJ2btZdHU"
+
+
+{
+    "status": "success",
+    "message": "Registro exitoso",
+    "user": {
+        "nickname": "albertiti07",
+        "email": "alberto7sanchez@gmail.com",
+        "password": "$2b$10$v7UJXgzr/.iHgLg2wTZlVOPBo7FxkToMLeeSn4OWT8X4/TSJc5ZQq",
+        "masterLanguage": "Spanish",
+        "masterLanguage2": null,
+        "learningLanguage": "English",
+        "learningLanguage2": null,
+        "learningLanguage3": null,
+        "role": "role_user",
+        "image": "default.png",
+        "_id": "6799efed9f87066bcd6c46e3",
+        "created_at": "2025-01-29T09:07:57.240Z",
+        "__v": 0
+    }
+} ALTberto77
+"token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjY3OTllZmVkOWY4NzA2NmJjZDZjNDZlMyIsIm5pY2tuYW1lIjoiYWxiZXJ0aXRpMDciLCJlbWFpbCI6ImFsYmVydG83c2FuY2hlekBnbWFpbC5jb20iLCJtYXN0ZXJMYW5ndWFnZSI6IlNwYW5pc2giLCJtYXN0ZXJMYW5ndWFnZTIiOm51bGwsImxlYXJuaW5nTGFuZ3VhZ2UiOiJFbmdsaXNoIiwibGVhcm5pbmdMYW5ndWFnZTIiOm51bGwsImxlYXJuaW5nTGFuZ3VhZ2UzIjpudWxsLCJyb2xlIjoicm9sZV91c2VyIiwiaW1hZ2UiOiJkZWZhdWx0LnBuZyIsImNyZWF0ZWRfYXQiOiIyMDI1LTAxLTI5VDA5OjA3OjU3LjI0MFoiLCJpYXQiOjE3MzgxNDE4MzUsImV4IjoxNzM5MDA1ODM1fQ.x8Ii9MoIdNGtqGcx8BnK7VLNh5rf-djg0UuqXih4rLg"
+
+
+{
+    "status": "success",
+    "message": "Registro exitoso",
+    "user": {
+        "nickname": "jarasanchez",
+        "email": "javaslova@gmail.com",
+        "password": "$2b$10$Lci21yHgb0y.YlO0wMsBXu4A5OpY66z1rbQL.T10X0r3s1RgdY7XK",
+        "masterLanguage": "French",
+        "masterLanguage2": null,
+        "learningLanguage": "English",
+        "learningLanguage2": null,
+        "learningLanguage3": null,
+        "role": "role_user",
+        "image": "default.png",
+        "_id": "6799f0299f87066bcd6c46e7",
+        "created_at": "2025-01-29T09:08:57.815Z",
+        "__v": 0
+    }
+} jarabedepalo
+"token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6IjY3OTlmMDI5OWY4NzA2NmJjZDZjNDZlNyIsIm5pY2tuYW1lIjoiamFyYXNhbmNoZXoiLCJlbWFpbCI6ImphdmFzbG92YUBnbWFpbC5jb20iLCJtYXN0ZXJMYW5ndWFnZSI6IkZyZW5jaCIsIm1hc3Rlckxhbmd1YWdlMiI6bnVsbCwibGVhcm5pbmdMYW5ndWFnZSI6IkVuZ2xpc2giLCJsZWFybmluZ0xhbmd1YWdlMiI6bnVsbCwibGVhcm5pbmdMYW5ndWFnZTMiOm51bGwsInJvbGUiOiJyb2xlX3VzZXIiLCJpbWFnZSI6ImRlZmF1bHQucG5nIiwiY3JlYXRlZF9hdCI6IjIwMjUtMDEtMjlUMDk6MDg6NTcuODE1WiIsImlhdCI6MTczODE0MTc4MSwiZXgiOjE3MzkwMDU3ODF9.phwz545XrTxubZsFi7QjeweOG9bO0Cfh7CDBts2PX6w"

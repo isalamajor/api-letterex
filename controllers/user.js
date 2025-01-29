@@ -19,7 +19,7 @@ const register = async (req, res) => {
         const params = req.body;
 
         // Validación
-        if (!params.nickname || !params.email || !params.password || !params.masterLanguage) {
+        if (!params.nickname || !params.email || !params.password || !params.masterLanguage || !params.learningLanguage) {
             return res.status(400).json({
                 status: "error",
                 message: "Parámetros de registro incompletos",
