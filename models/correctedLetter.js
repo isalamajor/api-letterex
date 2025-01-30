@@ -26,7 +26,16 @@ const CorrectedletterSchema = new Schema({
         type: Schema.Types.ObjectId, 
         ref: "User", 
         required: true 
-    }, // Usuario que corrigió
+    }, // Usuario que corrige
+    sender: { 
+        type: Schema.Types.ObjectId, 
+        ref: "User", 
+        required: true 
+    }, // Usuario que la envió
+    sentBack: {
+        type: Boolean,
+        default: false
+    }, // Corrector la envió de vuelta (ya no se puede modificar)
     corrections: [ CorrectionSchema ], // Array de correcciones
     comments: {
         type: String 

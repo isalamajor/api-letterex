@@ -39,6 +39,46 @@ const saveLetter = async (req, res) => {
 };
 
 
+const viewLetter = async (req, res) => {
+    try {
+        const { letterId } = req.params;
+        const userId = req.user.id;
+
+        // Buscar la carta por su ID
+        const letter = await Letter.findById(letterId);
+        if (!letter) {
+            return res.status(404).json({ message: "Letter not found." });
+        }
+
+        // Verificar que el usuario sea el autor o que la carta haya sido compartida con él
+        if (letter.author.toString() !== userId && !letter.sharedWith.includes(userId)) {
+            return res.status(403).json({ message: "Unauthorized to view this letter." });
+        }
+
+        // Crear el objeto con la información de la carta
+        const letterDetails = {
+            created_at: letter.created_at,
+            title: letter.title,
+            content: letter.content,
+            diary: letter.diary || null,
+            language: letter.language,
+            audio: letter.audio || null
+        };
+
+        return res.status(200).json({
+            message: "Letter retrieved successfully.",
+            letter: letterDetails
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            message: "Error retrieving letter",
+            error: error.message
+        });
+    }
+};
+
+
 const editLetter = async (req, res) => {
     try {
         const { letterId } = req.params;
@@ -107,29 +147,57 @@ const shareLetter = async (req, res) => {
         const { sharedWith } = req.body;
         const userId = req.user.id;
 
+        // Buscar la carta original
         const letter = await Letter.findById(letterId);
         if (!letter) {
             return res.status(404).json({ message: "Letter not found." });
         }
 
+        // Verificar que el usuario es el autor de la carta
         if (letter.author.toString() !== userId) {
             return res.status(403).json({ message: "Unauthorized to share this letter." });
         }
 
+        // Actualizar la carta para agregar los usuarios con los que se comparte
         letter.sharedWith = [...new Set([...letter.sharedWith, ...sharedWith])];
         await letter.save();
 
-        await Promise.all(sharedWith.map(async (friendId) => {
-            await User.findByIdAndUpdate(friendId, {
-                $push: { correctedLetter: letterId }
-            });
-        }));
+        // Crear un nuevo objeto CorrectedLetter para cada usuario en sharedWith
+        const correctedLetters = await Promise.all( 
+            sharedWith.map(async (friendId) => {
 
-        return res.status(200).json({ message: "Letter shared successfully.", letter });
+                const newCorrectedLetter = new CorrectedLetter({
+                    originalLetter: letterId,
+                    sender: letter.author,
+                    reviewer: friendId,
+                    corrections: [],
+                    sentBack: false
+                });
+
+                // Guardar el nuevo CorrectedLetter
+                return await newCorrectedLetter.save();
+            })
+        );
+
+        return res.status(200).json({
+            message: "Letter shared successfully.",
+            letter,
+            correctedLetters
+        });
     } catch (error) {
-        return res.status(500).json({ message: "Error sharing letter", error: error.message });
+        return res.status(500).json({
+            message: "Error sharing letter",
+            error: error.message
+        });
     }
 };
 
 
-module.exports = { saveLetter, editLetter, deleteLetter, listUserLetters, shareLetter };
+module.exports = { 
+    saveLetter,
+    viewLetter, 
+    editLetter, 
+    deleteLetter, 
+    listUserLetters, 
+    shareLetter
+};
