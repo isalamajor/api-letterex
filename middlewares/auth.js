@@ -19,7 +19,6 @@ exports.authentificate = (req, res, next) => {
     let token = req.headers.authorization.replace(/['"]+/g, '');
 
     // Decodificar token
-
     try {
         let payload = jwt.decode(token, secret);
 
@@ -34,7 +33,6 @@ exports.authentificate = (req, res, next) => {
         // Agregar datos del usuario 
         req.user = payload;
 
-
     } catch (error) {
         return res.status(404).send({
             status: "error",
@@ -44,5 +42,4 @@ exports.authentificate = (req, res, next) => {
 
     // Continuar con acciones del controlador
     next();
-
 }

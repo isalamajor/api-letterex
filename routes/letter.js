@@ -1,10 +1,17 @@
 const express = require("express");
 const router = express.Router();
-const UserController = require("../controllers/user");
+const LetterController = require("../controllers/letter");
+const auth = require("../middlewares/auth");
 
 
 // Definir rutas
-router.get("/prueba-letter", UserController.pruebaUser);
+console.log(LetterController);
+router.post("/new", auth.authentificate, LetterController.saveLetter); // Guardar una carta
+router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Editar una carta
+router.delete("/delete/:id", auth.authentificate, LetterController.deleteLetter); // Eliminar una carta
+router.get("/list", auth.authentificate, LetterController.listUserLetters); // Listar todas las cartas del usuario
+router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Compartir una carta
+
 
 
 // Exportar router

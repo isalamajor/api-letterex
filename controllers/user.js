@@ -373,6 +373,62 @@ const getProfilePicture = async (req, res) => {
 };
 
 
+const searchUsers = async (req, res) => {
+    try {
+        // Obtener el término de búsqueda desde los parámetros
+        const searchTerm = req.query.q;
+        if (!searchTerm) {
+            return res.status(400).json({
+                status: "error",
+                message: "Debe proporcionar un término de búsqueda"
+            });
+        }
+
+        // Expresión regular para hacer la búsqueda case-insensitive
+        const searchRegex = new RegExp(searchTerm, "i");
+
+        // Obtener página y definir elementos por página
+        const page = parseInt(req.query.page) || 1; // Página por defecto: 1
+        const itemsPerPage = 10; // Máximo de usuarios por página
+
+        // Buscar usuarios con paginación
+        const users = await User.find({
+            $or: [
+                { nickname: searchRegex },
+                { email: searchRegex }
+            ]
+        })
+        .select("-password -role") // Excluir datos sensibles
+        .sort("_id") // Ordenar por ID
+        .paginate(page, itemsPerPage);
+
+        // Contar total de usuarios coincidentes
+        const totalUsers = await User.countDocuments({
+            $or: [
+                { nickname: searchRegex },
+                { email: searchRegex }
+            ]
+        });
+
+        return res.status(200).json({
+            status: "success",
+            users,
+            page,
+            itemsPerPage,
+            totalUsers,
+            totalPages: Math.ceil(totalUsers / itemsPerPage)
+        });
+    } catch (error) {
+        console.error("Error al buscar usuarios:", error);
+        return res.status(500).json({
+            status: "error",
+            message: "Error en el servidor al buscar usuarios",
+            error: error.message
+        });
+    }
+};
+
+
 
 module.exports = { 
     pruebaUser, 
@@ -383,5 +439,7 @@ module.exports = {
     update, 
     changePassword, 
     uploadProfilePicture, 
-    getProfilePicture 
+    getProfilePicture,
+    searchUsers
 };
+
