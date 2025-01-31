@@ -10,7 +10,7 @@ router.post("/new", auth.authentificate, LetterController.saveLetter); // Guarda
 router.get("/view/:letterId", auth.authentificate, LetterController.viewLetter); // Obtener info y contenido 
 router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Editar una carta
 router.delete("/delete/:id", auth.authentificate, LetterController.deleteLetter); // Eliminar una carta
-router.get("/list", auth.authentificate, LetterController.listUserLetters); // Listar todas las cartas del usuario
+router.get("/list", auth.authentificate, LetterController.listLetters); // Listar todas las cartas del usuario
 router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Compartir una carta
 
 

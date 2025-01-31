@@ -32,6 +32,10 @@ const CorrectedletterSchema = new Schema({
         ref: "User", 
         required: true 
     }, // Usuario que la envió
+    startedCorrecting:  {
+        type: Boolean,
+        default: false
+    }, // Correcto tiene una corrección guardada (empezó a corregir)
     sentBack: {
         type: Boolean,
         default: false

@@ -1,5 +1,6 @@
 const Letter = require("../models/letter");
 const User = require("../models/user");
+const CorrectedLetter = require("../models/correctedLetter");
 
 
 const saveLetter = async (req, res) => {
@@ -130,15 +131,49 @@ const deleteLetter = async (req, res) => {
 };
 
 
-const listUserLetters = async (req, res) => {
+const listLetters = async (req, res) => {
     try {
         const userId = req.user.id;
-        const letters = await Letter.find({ author: userId });
+
+        // Obtener solo los campos necesarios, excluyendo contenido y audio
+        const letters = await Letter.find({ author: userId })
+            .select("title diary language created_at sharedWith");
+
         return res.status(200).json({ letters });
     } catch (error) {
         return res.status(500).json({ message: "Error fetching letters", error: error.message });
     }
 };
+
+
+const listLettersPlusCorrections = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Obtener solo las cartas del usuario, excluyendo contenido y audio
+        const letters = await Letter.find({ author: userId })
+            .select("title diary language created_at sharedWith");
+
+        // Obtener correcciones de cada carta
+        const lettersWithCorrections = await Promise.all(
+            letters.map(async (letter) => {
+                // Buscar todas las correcciones asociadas a esta carta
+                const corrections = await CorrectedLetter.find({ originalLetter: letter._id });
+
+                // Devolver la carta junto con las correcciones
+                return {
+                    ...letter.toObject(), // Convierte el objeto Mongoose en un objeto normal
+                    corrections: corrections // Devuelve las correcciones completas
+                };
+            })
+        );
+
+        return res.status(200).json({ letters: lettersWithCorrections });
+    } catch (error) {
+        return res.status(500).json({ message: "Error fetching letters", error: error.message });
+    }
+};
+
 
 
 const shareLetter = async (req, res) => {
@@ -198,6 +233,52 @@ module.exports = {
     viewLetter, 
     editLetter, 
     deleteLetter, 
-    listUserLetters, 
+    listLetters, 
+    listLettersPlusCorrections,
     shareLetter
 };
+
+
+/* Lo que devuelve listLettersPlusCorrections:
+{
+    "letters": [
+        {
+            "_id": "65bc9f5eaf1d8b2e9a4d3c71",
+            "title": "Carta 1",
+            "diary": "Mi diario",
+            "language": "es",
+            "created_at": "2025-02-01T12:00:00.000Z",
+            "sharedWith": ["65a1b2c3d4e5f67890abcd12"],
+            "corrections": [
+                {
+                    "_id": "65bc9f6aaf1d8b2e9a4d3c72",
+                    "originalLetter": "65bc9f5eaf1d8b2e9a4d3c71",
+                    "reviewer": "65a1b2c3d4e5f67890abcd12",
+                    "sender": "65bc9f5eaf1d8b2e9a4d3c74",
+                    "sentBack": false,
+                    "corrections": [],
+                    "comments": "Revisada parcialmente"
+                },
+                {
+                    "_id": "65bc9f75af1d8b2e9a4d3c73",
+                    "originalLetter": "65bc9f5eaf1d8b2e9a4d3c71",
+                    "reviewer": "65b2c3d4e5f67890abcd123",
+                    "sender": "65bc9f5eaf1d8b2e9a4d3c74",
+                    "sentBack": true,
+                    "corrections": ["Error en la gramática"],
+                    "comments": "Revisión final"
+                }
+            ]
+        },
+        {
+            "_id": "65bc9f6eaf1d8b2e9a4d3c74",
+            "title": "Carta 2",
+            "diary": null,
+            "language": "en",
+            "created_at": "2025-02-02T12:00:00.000Z",
+            "sharedWith": [],
+            "corrections": []
+        }
+    ]
+}
+ */

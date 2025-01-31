@@ -20,10 +20,12 @@ app.use(express.urlencoded({extended: true})); // Convertir datos en formato for
 const UserRoutes = require("./routes/user");
 const LetterRoutes = require("./routes/letter");
 const FollowRoutes = require("./routes/follow");
+const CorrectedLetterRoutes = require("./routes/correctedLetter");
 
 app.use("/api/user", UserRoutes);
 app.use("/api/letter", LetterRoutes);
 app.use("/api/follow", FollowRoutes);
+app.use("/api/corrected", CorrectedLetterRoutes);
 
 
 // Cargar rutas
