@@ -111,10 +111,13 @@ const getReceivedLetters = async (req, res) => {
 
         // Buscar todas las cartas a corregir donde el usuario es el revisor
         const correctedLetters = await CorrectedLetter.find({ reviewer: userId })
+        .select('originalLetter sender sentBack corrected_at')
+        .populate('originalLetter', '-sharedWith -content -diary') // trae toda la carta
+        .populate('sender', 'image');
 
         return res.status(200).json({
             status: "success",
-            correctedLetters
+            letters: correctedLetters
         });
     } catch (error) {
         return res.status(500).json({

@@ -1,10 +1,133 @@
-const User = require("../models/user");
+const nodemailer = require('nodemailer');
+const { User, VerificationCode } = require("../models/user");
 const bcrypt = require("bcrypt");
 const jwt = require("../services/jwt");
 const mongoosePaginate = require("mongoose-pagination");
 const path = require("path");
 const fs = require('fs');
 
+const sendVerificationCode = async (req, res) => {
+    const { email } = req.params;
+
+    // Validar el email
+    if (!email) return res.status(400).json({ message: 'Email requerido' });
+
+    // Genera un código aleatorio de 6 dígitos
+    const code = Math.floor(100000 + Math.random() * 900000);
+
+    // Calcula la fecha de expiración (7 minutos desde ahora)
+    const expiresAt = new Date(Date.now() + 7 * 60 * 1000);
+
+    try {
+        // Buscar y actualizar el código de verificación existente o crear uno nuevo
+        const verificationCode = await VerificationCode.findOneAndUpdate(
+            { email }, // Filtro: buscar por email
+            { code, expiresAt, verified: false }, // Actualizar estos campos
+            { new: true, upsert: true } // Crear uno nuevo si no existe
+        );
+        console.log("Código de verificación guardado o actualizado:", verificationCode);
+
+    } catch (error) {
+        return res.status(500).json({ 
+            code: -1,
+            message: "Error al guardar el código de verificación",
+            error: error.message
+        });
+    }
+
+    // Configura tu transporter SMTP (esto es un ejemplo con Gmail)
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+    });
+
+    try {
+        await transporter.sendMail({
+            from: `"Letterex 🐸" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: 'Verification Code',
+            html: `<h1>Letterex Registration</h1><p>Here's your verification code to register to Letterex: <strong>${code}</strong></p>`
+        });
+
+        return res.status(200).json({ 
+            code: 0,
+            message: 'Código enviado'
+        });
+    } catch (error) {
+        return res.status(500).json({ 
+            code: -1,
+            message: "Error enviando el email de verificación",
+            error: error.message 
+        });
+    }
+};
+
+
+const verifyCode = async (req, res) => {
+    const { email, code } = req.body;
+
+    // Validar que se envíen los parámetros necesarios
+    if (!email || !code) {
+        return res.status(400).json({
+            status: "error",
+            code: -1,
+            message: "Email y código requeridos"
+        });
+    }
+
+    try {
+        // Buscar el código de verificación en la base de datos
+        const verificationCode = await VerificationCode.findOne({ email, code });
+
+        // Verificar si existe
+        if (!verificationCode) {
+            return res.status(404).json({
+                status: "error",
+                code: -2,
+                message: "Código de verificación no encontrado o incorrecto"
+            });
+        }
+
+        // Verificar si el código ya fue utilizado
+        if (verificationCode.verified) {
+            return res.status(400).json({
+                status: "error",
+                code: -3,
+                message: "El código ya ha sido utilizado"
+            });
+        }
+
+        // Verificar si el código ha expirado
+        if (new Date() > verificationCode.expiresAt) {
+            return res.status(400).json({
+                status: "error",
+                code: -4,
+                message: "El código ha expirado"
+            });
+        }
+
+        // Marcar el código como utilizado
+        verificationCode.verified = true;
+        await verificationCode.save();
+
+        return res.status(200).json({
+            status: "success",
+            code: 0,
+            message: "Código verificado correctamente"
+        });
+    } catch (error) {
+        console.error("Error al verificar el código:", error);
+        return res.status(500).json({
+            status: "error",
+            code: -1,
+            message: "Error en el servidor al verificar el código",
+            error: error.message
+        });
+    }
+};
 
 const pruebaUser = (req, res) => {
     return res.status(200).json({
@@ -31,7 +154,7 @@ const register = async (req, res) => {
         let users = await User.find({ email: params.email });
         if (users.length > 0) {
             return res.status(400).json({
-                status: "error",
+                status: 1,
                 message: "Este email ya está en uso"
             });
         }
@@ -39,7 +162,7 @@ const register = async (req, res) => {
         users = await User.find({ nickname: params.nickname });
         if (users.length > 0) {
             return res.status(400).json({
-                status: "error",
+                status: 2,
                 message: "Este nickname ya está en uso"
             });
         }
@@ -58,14 +181,14 @@ const register = async (req, res) => {
 
         // Éxito
         return res.status(200).json({
-            status: "success",
+            status: 0,
             message: "Registro exitoso",
             user: userSaved
         });
     } catch (error) {
         console.error("Error en el registro:", error);
         return res.status(500).json({
-            status: "error",
+            status: -1,
             message: "Error en el servidor",
             error: error.message
         });
@@ -80,7 +203,7 @@ const login = async (req, res) => {
     // Validación
     if (!params.email || !params.password ) {
         return res.status(400).json({
-            status: "error",
+            status: -1,
             message: "Parámetros de login incompletos",
             parameters: params
         });
@@ -89,8 +212,8 @@ const login = async (req, res) => {
     // Buscar usuario
     let user = await User.findOne({ email: params.email }); // Buscar user con ese email
     if (!user) {
-        return res.status(400).json({
-            status: "error",
+        return res.status(200).json({
+            status: 1,
             message: "Email no registrado"
         });
     }
@@ -98,20 +221,27 @@ const login = async (req, res) => {
     // Verificar contraseña
     let pwd = bcrypt.compareSync(params.password, user.password) // La que ingresó el user CON la que hay en la db
     if (!pwd) {
-        return res.status(400).json({
-            status: "error",
+        return res.status(200).json({
+            status: 2,
             message: "Constraseña incorrecta"
         });
     }
 
-    // Obtener token JWT
+    // Generar token JWT
     const token = jwt.createToken(user);
+
+    // Eliminar contraseña y rol del objeto a devolver
+    const userData = user.toObject();
+    delete userData.password;
+    delete userData.role;
+
+    console.log("User logged in:", userData);
 
     // Éxito
     return res.status(200).json({
-        status: "success",
+        status: 0,
         message: "Login exitoso",
-        user,
+        userData,
         token
     });
 }
@@ -120,6 +250,11 @@ const login = async (req, res) => {
 const profile = async (req, res) => {
     // Recibir parámetro id de usuario
     const id = req.params.id;
+
+    // Si no hay id utilizar el del token
+    if (!id && req.user && req.user.id) {
+        id = req.user.id;
+    }
 
     if (!id) {
         return res.status(400).json({
@@ -430,6 +565,28 @@ const searchUsers = async (req, res) => {
 
 
 
+const checkNickname = async (req, res) => {
+    const { nickname } = req.params;
+
+    if (!nickname) {
+        return res.status(400).json({ status: -1, message: "Falta el nickname" });
+    }
+
+    const user = await User.findOne({ nickname }); // User con ese nickname
+    
+    return res.status(200).json({ status: 0, inUse: !!user }); // Devuelve true si el nickname está en uso, false si no.
+};
+
+const checkEmail = async (req, res) => {
+    const { email } = req.params;
+    if (!email) {
+        return res.status(400).json({ result: -1, message: "Falta el email" });
+    }
+    const user = await User.findOne({ email });
+    return res.status(200).json({ result: 0, inUse: !!user });
+};
+
+
 module.exports = { 
     pruebaUser, 
     register, 
@@ -440,6 +597,10 @@ module.exports = {
     changePassword, 
     uploadProfilePicture, 
     getProfilePicture,
-    searchUsers
+    searchUsers,
+    checkNickname,
+    checkEmail,
+    sendVerificationCode,
+    verifyCode
 };
 

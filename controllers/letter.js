@@ -5,10 +5,25 @@ const CorrectedLetter = require("../models/correctedLetter");
 
 const saveLetter = async (req, res) => {
     try {
-        const { title, content, diary, language, created_at } = req.body;
+        console.log("req.body", req.body);
+        // Guardar contenido del body
+        const { title, content, diary, language, created_at } = req.body; // created_at formato "2025-01-30"
+        // Guardar contenido del body
+        const now = new Date();
+        const created_at_conv = new Date(
+            created_at.year,
+            created_at.month - 1,
+            created_at.day,
+            now.getHours(),
+            now.getMinutes(),
+            now.getSeconds(),
+            now.getMilliseconds()
+          );
+        
+        console.log("Variables asignadas:", { content, title, diary, language, created_at_conv });
         const userId = req.user.id; 
 
-        if (!title || !content || !language || !created_at) { // created at formato "2025-01-30"
+        if (!title || !content || !language || !created_at_conv) { // created at formato "2025-01-30"
             return res.status(400).json({
                 status: "error",
                 message: "Title, content, date and language are required." 
@@ -21,7 +36,7 @@ const saveLetter = async (req, res) => {
             content,
             diary: diary || null,
             language,
-            created_at: created_at || Date.now
+            created_at: created_at_conv || Date.now
         });
 
         const savedLetter = await newLetter.save();
@@ -31,6 +46,7 @@ const saveLetter = async (req, res) => {
             letter: savedLetter 
         });
     } catch (error) {
+        console.error("Error saving letter:", error);
         return res.status(500).json({
             status: "error",
             message: "Error saving letter",
@@ -63,9 +79,10 @@ const viewLetter = async (req, res) => {
             content: letter.content,
             diary: letter.diary || null,
             language: letter.language,
-            audio: letter.audio || null
+            audio: letter.audio || null,
+            sharedWith: letter.sharedWith || []
         };
-
+        console.log("letterDetails", letterDetails);
         return res.status(200).json({
             message: "Letter retrieved successfully.",
             letter: letterDetails
@@ -82,11 +99,12 @@ const viewLetter = async (req, res) => {
 
 const editLetter = async (req, res) => {
     try {
-        const { letterId } = req.params;
+        const letterId  = req.params.id;
         const { title, content, diary, language, sharedWith } = req.body;
         const userId = req.user.id;
-
+        
         const letter = await Letter.findById(letterId);
+
         if (!letter) {
             return res.status(404).json({ message: "Letter not found." });
         }
@@ -100,7 +118,6 @@ const editLetter = async (req, res) => {
         letter.diary = diary !== undefined ? diary : letter.diary;
         letter.language = language || letter.language;
         letter.sharedWith = sharedWith || letter.sharedWith;
-
         const updatedLetter = await letter.save();
         return res.status(200).json({ message: "Letter updated successfully.", letter: updatedLetter });
     } catch (error) {
@@ -138,7 +155,7 @@ const listLetters = async (req, res) => {
         // Obtener solo los campos necesarios, excluyendo contenido y audio
         const letters = await Letter.find({ author: userId })
             .select("title diary language created_at sharedWith");
-
+        console.log("letters", letters);
         return res.status(200).json({ letters });
     } catch (error) {
         return res.status(500).json({ message: "Error fetching letters", error: error.message });
@@ -158,12 +175,32 @@ const listLettersPlusCorrections = async (req, res) => {
         const lettersWithCorrections = await Promise.all(
             letters.map(async (letter) => {
                 // Buscar todas las correcciones asociadas a esta carta
-                const corrections = await CorrectedLetter.find({ originalLetter: letter._id });
+                const corrections = await CorrectedLetter.find({ originalLetter: letter._id, sentBack });
 
-                // Devolver la carta junto con las correcciones
+                // Devolver la carta junto con las correcciones. De cada corrección y letter.sharedWith, se busca y devuelve el objeto completo de usuario
+                const correctionsWithDetails = await Promise.all(
+                    corrections.map(async (correction) => {
+                        const reviewer = await User.findById(correction.reviewer).select("name image");
+
+                        return {
+                            correction_id: correction._id,
+                            reviewer: reviewer || null
+                        };
+                    })
+                );
+                // Agregar detalles de los usuarios con los que se comparte la carta
+                const sharedWithDetails = await Promise.all(
+                    letter.sharedWith.map(async (friendId) => {
+                        const friend = await User.findById(friendId).select("name image");
+                        return friend || null; 
+                    })
+                );
+                // Devolver lista de cartas, cada una con sus correcciones y detalles de usuarios
+                letter.sharedWith = sharedWithDetails; // Agregar detalles de los usuarios con los que se comparte la carta
+                letter.corrections = correctionsWithDetails; // Agregar correcciones con detalles de los revisores
+
                 return {
                     ...letter.toObject(), // Convierte el objeto Mongoose en un objeto normal
-                    corrections: corrections // Devuelve las correcciones completas
                 };
             })
         );
@@ -178,7 +215,8 @@ const listLettersPlusCorrections = async (req, res) => {
 
 const shareLetter = async (req, res) => {
     try {
-        const { letterId } = req.params;
+        const letterId = req.params.id;
+        console.log("letterId", letterId);
         const { sharedWith } = req.body;
         const userId = req.user.id;
 
@@ -228,6 +266,26 @@ const shareLetter = async (req, res) => {
 };
 
 
+const getUserDiaries = async (userId) => {
+    try {
+        // Buscar todas las cartas del usuario
+        const letters = await Letter.find({ author: userId }).select("diary");
+        
+        // Filtrar y devolver los diarios únicos
+        const diaries = [...new Set(letters.map(letter => letter.diary).filter(diary => diary))];
+        return res.status(200).json({
+            message: "success",
+            diaries: diaries
+        });
+    } catch (error) {
+        return res.status(500).json({
+            message: "Error getting diaries",
+            error: error.message
+        });
+    }
+}
+
+
 module.exports = { 
     saveLetter,
     viewLetter, 
@@ -235,7 +293,8 @@ module.exports = {
     deleteLetter, 
     listLetters, 
     listLettersPlusCorrections,
-    shareLetter
+    shareLetter,
+    getUserDiaries
 };
 
 

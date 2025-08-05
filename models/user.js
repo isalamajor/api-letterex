@@ -1,4 +1,4 @@
-const {Schema, model} = require('mongoose');
+const { Schema, model } = require('mongoose');
 
 const UserSchema = Schema({
     nickname: {
@@ -18,6 +18,10 @@ const UserSchema = Schema({
         required: true
     },
     masterLanguage2: {
+        type: String,
+        default: null
+    },
+    masterLanguage3: {
         type: String,
         default: null
     },
@@ -45,6 +49,29 @@ const UserSchema = Schema({
         type: Date,
         default: Date.now
     }
-})
+});
 
-module.exports = model("User", UserSchema, "users")
+const VerificationCodeSchema = Schema({
+    email: {
+        type: String,
+        required: true
+    },
+    code: {
+        type: Number,
+        required: true
+    },
+    expiresAt: {
+        type: Date,
+        required: true
+    },
+    verified: {
+        type: Boolean,
+        default: false
+    }
+});
+
+// Exportar ambos modelos
+const User = model("User", UserSchema, "users");
+const VerificationCode = model("VerificationCode", VerificationCodeSchema, "verification_codes");
+
+module.exports = { User, VerificationCode };

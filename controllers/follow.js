@@ -1,4 +1,4 @@
-const User = require("../models/user");
+const { User } = require("../models/user");
 const Follow = require("../models/follow");
 const FriendRequest = require("../models/friendRequest");
 
@@ -318,11 +318,18 @@ const getFriends = async (req, res) => {
                 friendIds.add(follow.user1);
             }
         });
+        
+        // Para cada amigo, obtener su información básica
+        const friendDetails = await Promise.all(
+            Array.from(friendIds).map(async (friendId) => {
+              return await User.findById(friendId).select("nickname image _id");
+            })
+          );
 
         return res.status(200).json({
             status: "success",
             count: friendIds.size,
-            friends: Array.from(friendIds) // Convertir Set a Array
+            friends: friendDetails
         });
     } catch (error) {
         console.error("Error al obtener la lista de amigos:", error);

@@ -35,7 +35,7 @@ const CorrectedletterSchema = new Schema({
     startedCorrecting:  {
         type: Boolean,
         default: false
-    }, // Correcto tiene una corrección guardada (empezó a corregir)
+    }, // Corrector tiene una corrección guardada (empezó a corregir)
     sentBack: {
         type: Boolean,
         default: false

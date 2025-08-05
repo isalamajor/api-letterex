@@ -12,6 +12,7 @@ router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Ed
 router.delete("/delete/:id", auth.authentificate, LetterController.deleteLetter); // Eliminar una carta
 router.get("/list", auth.authentificate, LetterController.listLetters); // Listar todas las cartas del usuario
 router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Compartir una carta
+router.get("/diaries", auth.authentificate, LetterController.getUserDiaries); // Listar diarios del usuario
 
 
 // Exportar router
