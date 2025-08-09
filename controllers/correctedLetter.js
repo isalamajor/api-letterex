@@ -1,13 +1,41 @@
 const CorrectedLetter = require("../models/correctedLetter");
 
 
-const addCorrections = async (req, res) => {
+const getLetterCorrectionById = async (req, res) => {
+    try {
+        const { correctedLetterId } = req.params;
+        
+        const correctedLetter = await CorrectedLetter.findById(correctedLetterId)
+            .populate('originalLetter', '-sharedWith -diary') // Trae toda la carta original
+            .populate('reviewer', 'nickname image') // Trae el revisor
+            .populate('sender', 'nickname image'); // Trae el remitente
+
+        if (!correctedLetter) {
+            return res.status(404).json({ message: "Corrected letter not found." });
+        }
+
+        return res.status(200).json({
+            status: "success",
+            correctedLetter
+        });
+    } catch (error) {
+        return res.status(500).json({
+            status: "error",
+            message: "Error retrieving corrected letter",
+            error: error.message
+        });
+    }
+}
+
+
+const updateCorrections = async (req, res) => {
     try {
         const { correctedLetterId } = req.params;
         const { corrections } = req.body; // Array de correcciones que el revisor desea agregar
+        const { comments } = req.body; // Comentarios generales (opcional)
 
         // Verificar que se ha enviado un array de correcciones
-        if (!Array.isArray(corrections) || corrections.length === 0) {
+        if (comments === "" && (!Array.isArray(corrections) || corrections.length === 0)) {
             return res.status(400).json({ message: "Corrections must be an array and cannot be empty." });
         }
 
@@ -27,17 +55,22 @@ const addCorrections = async (req, res) => {
             return res.status(403).json({ message: "Cannot add corrections to a letter that has been sent back." });
         }
 
-        // Añadir las nuevas correcciones
-        correctedLetter.corrections.push(...corrections);
+        // Cambiar las correcciones actuales por las nuevas
+        correctedLetter.corrections = corrections;
 
-        // Marcar que ha comenzado a corregir
-        correctedLetter.startedCorrecting = true;
+        // Si se han proporcionado comentarios, actualizarlos
+        if (comments) {
+            correctedLetter.comments = comments;
+        }
+
+        // Actualizar la fecha de corrección
+        correctedLetter.corrected_at = Date.now();
 
         // Guardar la carta corregida con las nuevas correcciones
         await correctedLetter.save();
 
         return res.status(200).json({
-            message: "Corrections added successfully.",
+            message: "Corrections updated successfully.",
             correctedLetter
         });
     } catch (error) {
@@ -89,7 +122,7 @@ const getCorrectionsByLetter = async (req, res) => {
         const { originalLetterId } = req.params;
 
         // Buscar todas las cartas corregidas relacionadas con la original (MIS cartas que me corrigieron)
-        const correctedLetters = await CorrectedLetter.find({ originalLetter: originalLetterId })
+        const correctedLetters = await CorrectedLetter.find({ originalLetter: originalLetterId, sentBack: true})
 
         return res.status(200).json({
             status: "success", 
@@ -102,7 +135,7 @@ const getCorrectionsByLetter = async (req, res) => {
             error: error.message
         });
     }
-};
+}   ;
 
 
 const getReceivedLetters = async (req, res) => {
@@ -111,9 +144,12 @@ const getReceivedLetters = async (req, res) => {
 
         // Buscar todas las cartas a corregir donde el usuario es el revisor
         const correctedLetters = await CorrectedLetter.find({ reviewer: userId })
-        .select('originalLetter sender sentBack corrected_at')
+        .select('originalLetter sender sentBack corrected_at seen')
         .populate('originalLetter', '-sharedWith -content -diary') // trae toda la carta
         .populate('sender', 'image');
+    
+        // Marcar las cartas como vistas (después de haberlas obtenido)
+        const rep = await CorrectedLetter.updateMany({ reviewer: userId }, { seen: true });
 
         return res.status(200).json({
             status: "success",
@@ -129,7 +165,8 @@ const getReceivedLetters = async (req, res) => {
 };
 
 module.exports = {
-    addCorrections,
+    getLetterCorrectionById,
+    updateCorrections,
     sendBack,
     getCorrectionsByLetter,
     getReceivedLetters

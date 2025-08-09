@@ -1,5 +1,6 @@
 const Letter = require("../models/letter");
-const User = require("../models/user");
+const correctedLetter = require("../models/correctedLetter");
+const { User } = require("../models/user");
 const CorrectedLetter = require("../models/correctedLetter");
 
 
@@ -155,62 +156,54 @@ const listLetters = async (req, res) => {
         // Obtener solo los campos necesarios, excluyendo contenido y audio
         const letters = await Letter.find({ author: userId })
             .select("title diary language created_at sharedWith");
-        console.log("letters", letters);
-        return res.status(200).json({ letters });
-    } catch (error) {
-        return res.status(500).json({ message: "Error fetching letters", error: error.message });
-    }
-};
 
 
-const listLettersPlusCorrections = async (req, res) => {
-    try {
-        const userId = req.user.id;
-
-        // Obtener solo las cartas del usuario, excluyendo contenido y audio
-        const letters = await Letter.find({ author: userId })
-            .select("title diary language created_at sharedWith");
-
-        // Obtener correcciones de cada carta
+        // Para cada usuario de sharedWith, mirar si existe una CorrectedLetter con sentBack = true. Añadir a usuario el campo correctionSentBack
         const lettersWithCorrections = await Promise.all(
             letters.map(async (letter) => {
-                // Buscar todas las correcciones asociadas a esta carta
-                const corrections = await CorrectedLetter.find({ originalLetter: letter._id, sentBack });
-
-                // Devolver la carta junto con las correcciones. De cada corrección y letter.sharedWith, se busca y devuelve el objeto completo de usuario
-                const correctionsWithDetails = await Promise.all(
-                    corrections.map(async (correction) => {
-                        const reviewer = await User.findById(correction.reviewer).select("name image");
+                
+                // Obtener detalles de los usuarios con los que se comparte la carta
+                const sharedWithDetails = await Promise.all(
+                    letter.sharedWith.map(async (friendId) => {
+                        console.log("friendId", friendId);
+                        const friend = await User.findById(friendId).select("nickname image");
+                        console.log("friend", friend);
+                        if (!friend) return null; // Si no existe el usuario, retornar null
+                        
+                        // Verificar si hay correcciones enviadas de vuelta por este usuario
+                        const correctionSentBack = await CorrectedLetter.findOne({
+                            originalLetter: letter._id,
+                            reviewer: friendId,
+                            sentBack: true
+                        });
+                        
+                        if (!correctionSentBack) {
+                            return {
+                                ...friend.toObject(),
+                                correctionSentBack: false, // No se ha enviado de vuelta
+                                correctedLetterId: null // No hay carta corregida
+                            };
+                        }
 
                         return {
-                            correction_id: correction._id,
-                            reviewer: reviewer || null
+                            ...friend.toObject(),
+                            correctionSentBack: !!correctionSentBack, // Añadir campo correctionSentBack
+                            correctedLetterId: correctionSentBack._id
                         };
                     })
                 );
-                // Agregar detalles de los usuarios con los que se comparte la carta
-                const sharedWithDetails = await Promise.all(
-                    letter.sharedWith.map(async (friendId) => {
-                        const friend = await User.findById(friendId).select("name image");
-                        return friend || null; 
-                    })
-                );
-                // Devolver lista de cartas, cada una con sus correcciones y detalles de usuarios
-                letter.sharedWith = sharedWithDetails; // Agregar detalles de los usuarios con los que se comparte la carta
-                letter.corrections = correctionsWithDetails; // Agregar correcciones con detalles de los revisores
-
-                return {
-                    ...letter.toObject(), // Convierte el objeto Mongoose en un objeto normal
-                };
+                //console.log("sharedWithDetails", sharedWithDetails);
+                const letterObj = letter.toObject();
+                letterObj.sharedWith = sharedWithDetails.filter(user => user !== null); // Filtrar usuarios nulos 
+                return letterObj; // Convertir a objeto normal
             })
-        );
-
+        );          
         return res.status(200).json({ letters: lettersWithCorrections });
     } catch (error) {
+        console.error("Error fetching letters:", error);
         return res.status(500).json({ message: "Error fetching letters", error: error.message });
     }
 };
-
 
 
 const shareLetter = async (req, res) => {
@@ -292,7 +285,6 @@ module.exports = {
     editLetter, 
     deleteLetter, 
     listLetters, 
-    listLettersPlusCorrections,
     shareLetter,
     getUserDiaries
 };
