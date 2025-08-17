@@ -250,6 +250,7 @@ const login = async (req, res) => {
 const profile = async (req, res) => {
     // Recibir parámetro id de usuario
     const id = req.params.id;
+    console.log("ID de usuario recibido:", id);
 
     // Si no hay id utilizar el del token
     if (!id && req.user && req.user.id) {
@@ -271,6 +272,8 @@ const profile = async (req, res) => {
             message: "Usuario no encontrado"
         });
     }
+
+    console.log("Usuario encontrado:", user);
 
     // Eliminar constraseña y rol del objeto a devolver
     const userResponse = user.toObject(); // Convierte el documento de Mongoose a un objeto plano
@@ -330,7 +333,6 @@ const update = async (req, res) => {
 
         // Recoger datos de la petición
         const updateData = req.body;
-
         // Validar que no se intente cambiar información no permitida sin autorización explícita
         if (updateData.password || updateData.email || updateData.nickname) {
             return res.status(400).json({
@@ -338,7 +340,7 @@ const update = async (req, res) => {
                 message: "No puedes actualizar ni la contraseña, ni el nickname ni el email desde esta función"
             });
         }
-
+        console.log("Datos a actualizar:", updateData);
         // Actualizar el usuario en la base de datos
         const updatedUser = await User.findByIdAndUpdate(
             userId,                // Filtro por el ID del usuario
@@ -346,6 +348,7 @@ const update = async (req, res) => {
             { new: true }          // Devuelve el usuario actualizado
         );
 
+        console.log("Usuario actualizado:", updatedUser);
         // Validar que el usuario exista y haya sido actualizado
         if (!updatedUser) {
             return res.status(404).json({
@@ -363,7 +366,7 @@ const update = async (req, res) => {
         return res.status(200).json({
             status: "success",
             message: "Usuario actualizado con éxito",
-            user: userResponse
+            userData: userResponse
         });
     } catch (error) {
         return res.status(500).json({
@@ -585,6 +588,7 @@ const checkEmail = async (req, res) => {
     const user = await User.findOne({ email });
     return res.status(200).json({ result: 0, inUse: !!user });
 };
+
 
 
 module.exports = { 

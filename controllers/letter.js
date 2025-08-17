@@ -279,6 +279,52 @@ const getUserDiaries = async (userId) => {
 }
 
 
+const countLetters = async (req, res) => {
+    try {
+      let userId = req.params.id;
+  
+      // Si no hay ID en params, usar el autenticado
+      if (!userId && req.user && req.user.id) {
+        userId = req.user.id;
+      }
+  
+      if (!userId) {
+        return res.status(400).json({
+          status: "error",
+          message: "User ID not provided",
+          counts: {}
+        });
+      }
+  
+      // Agrupar por idioma y contar
+      const countsByLanguage = await Letter.aggregate([
+        { $match: { author: userId } },
+        { $group: { _id: "$language", count: { $sum: 1 } } }
+      ]);
+  
+      // Transformar el resultado a objeto { idioma: count }
+      const result = countsByLanguage.reduce((acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      }, {});
+  
+      res.status(200).json({
+        status: "success",
+        counts: result,
+      });
+  
+    } catch (error) {
+      console.error("Error counting letters:", error);
+      res.status(500).json({
+        status: "error",
+        message: "Error counting letters",
+        counts: {}
+      });
+    }
+  };
+  
+
+
 module.exports = { 
     saveLetter,
     viewLetter, 
@@ -286,50 +332,6 @@ module.exports = {
     deleteLetter, 
     listLetters, 
     shareLetter,
-    getUserDiaries
+    getUserDiaries,
+    countLetters
 };
-
-
-/* Lo que devuelve listLettersPlusCorrections:
-{
-    "letters": [
-        {
-            "_id": "65bc9f5eaf1d8b2e9a4d3c71",
-            "title": "Carta 1",
-            "diary": "Mi diario",
-            "language": "es",
-            "created_at": "2025-02-01T12:00:00.000Z",
-            "sharedWith": ["65a1b2c3d4e5f67890abcd12"],
-            "corrections": [
-                {
-                    "_id": "65bc9f6aaf1d8b2e9a4d3c72",
-                    "originalLetter": "65bc9f5eaf1d8b2e9a4d3c71",
-                    "reviewer": "65a1b2c3d4e5f67890abcd12",
-                    "sender": "65bc9f5eaf1d8b2e9a4d3c74",
-                    "sentBack": false,
-                    "corrections": [],
-                    "comments": "Revisada parcialmente"
-                },
-                {
-                    "_id": "65bc9f75af1d8b2e9a4d3c73",
-                    "originalLetter": "65bc9f5eaf1d8b2e9a4d3c71",
-                    "reviewer": "65b2c3d4e5f67890abcd123",
-                    "sender": "65bc9f5eaf1d8b2e9a4d3c74",
-                    "sentBack": true,
-                    "corrections": ["Error en la gramática"],
-                    "comments": "Revisión final"
-                }
-            ]
-        },
-        {
-            "_id": "65bc9f6eaf1d8b2e9a4d3c74",
-            "title": "Carta 2",
-            "diary": null,
-            "language": "en",
-            "created_at": "2025-02-02T12:00:00.000Z",
-            "sharedWith": [],
-            "corrections": []
-        }
-    ]
-}
- */

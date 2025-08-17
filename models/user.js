@@ -48,6 +48,23 @@ const UserSchema = Schema({
     created_at: {
         type: Date,
         default: Date.now
+    },
+    bio: {
+        type: String,
+        required: false
+    },
+    location: {
+        type: {
+            country: {
+                type: String,
+                required: true
+            },
+            city: {
+                type: String,
+                required: true
+            }
+        },
+        required: false
     }
 });
 

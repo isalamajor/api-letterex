@@ -13,6 +13,7 @@ router.delete("/delete/:id", auth.authentificate, LetterController.deleteLetter)
 router.get("/list", auth.authentificate, LetterController.listLetters); // Listar todas las cartas del usuario
 router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Compartir una carta
 router.get("/diaries", auth.authentificate, LetterController.getUserDiaries); // Listar diarios del usuario
+router.get("/count/:id?", auth.authentificate, LetterController.countLetters) // Contar cartas del usuario logeado o del id por idioma
 
 
 // Exportar router
