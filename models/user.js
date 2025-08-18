@@ -57,11 +57,11 @@ const UserSchema = Schema({
         type: {
             country: {
                 type: String,
-                required: true
+                required: false
             },
             city: {
                 type: String,
-                required: true
+                required: false
             }
         },
         required: false

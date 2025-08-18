@@ -437,6 +437,7 @@ const changePassword = async (req, res) => {
 
 const uploadProfilePicture = async (req, res) => {
     try {
+        console.log("TEST1");
         // Verificar archivo recibido
         if (!req.file) {
             return res.status(400).json({
@@ -444,7 +445,8 @@ const uploadProfilePicture = async (req, res) => {
                 message: "No se subió ninguna imagen"
             });
         }
-
+        
+        console.log("TEST2");
         // Verificar si el usuario existe
         const userId = req.user.id; 
         const user = await User.findById(userId);
@@ -456,10 +458,14 @@ const uploadProfilePicture = async (req, res) => {
                 message: "Usuario no encontrado"
             });
         }
+        
+        console.log("TEST3");
 
         // Actualizar la ruta de la imagen en la base de datos
         user.image = req.file.filename; // Guardamos solo el nombre del archivo
         await user.save();
+        
+        console.log("TEST4");
 
         return res.status(200).json({
             status: "success",
@@ -468,6 +474,7 @@ const uploadProfilePicture = async (req, res) => {
             profilePicture: user.image
         });
     } catch (error) {
+        console.log("Error al subir la foto de perfil:", error);
         return res.status(500).json({
             status: "error",
             message: "Error en al subir la foto de perfil"
@@ -501,6 +508,7 @@ const getProfilePicture = async (req, res) => {
         }
 
         // Envía el archivo al cliente
+        console.log("Enviando imagen de perfil:", filePath);
         res.sendFile(filePath);
     } catch (error) {
         return res.status(500).json({
