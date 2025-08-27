@@ -26,6 +26,7 @@ const LetterRoutes = require("./routes/letter");
 const FollowRoutes = require("./routes/follow");
 const CorrectedLetterRoutes = require("./routes/correctedLetter");
 
+app.use('/uploads/profile_pictures', express.static('uploads/profile_pictures'));
 app.use("/api/user", UserRoutes);
 app.use("/api/letter", LetterRoutes);
 app.use("/api/follow", FollowRoutes);
@@ -41,6 +42,7 @@ app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({ message: "Internal Server Error" });
 });
+
 
 // Arrancar servidor
 app.listen(port, () => {

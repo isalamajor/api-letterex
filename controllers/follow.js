@@ -1,5 +1,6 @@
 const { User } = require("../models/user");
 const Follow = require("../models/follow");
+const CorrectedLetter = require("../models/correctedLetter");
 const FriendRequest = require("../models/friendRequest");
 
 const pruebaFollow = (req, res) => {
@@ -54,6 +55,15 @@ const sendFriendRequest = async (req, res) => {
 
         // Recoger el ID del usuario al que se desea enviar la solicitud
         const receiverId = req.params.id;
+
+        console.log("Sending friend request from ", userId, " to ", receiverId);
+
+        if (!userId || !receiverId || receiverId === "undefined" || userId === receiverId) {
+            return res.status(400).json({
+                status: "error",
+                message: "Solicitud de amistad inválida"
+            });
+        }
 
         // Verificar que los usuarios no sean ya amigos
         const areFriends = await Follow.findOne({
@@ -119,11 +129,21 @@ const listFriendRequests = async (req, res) => {
     try {
         const userId = req.user.id;
 
-        const requests = await FriendRequest.find({ receiver: userId });
+        const requests = await FriendRequest.find({ receiver: userId })
+            .sort({ created_at: -1 })    
+            .populate("sender", "_id nickname image");
+
+        const requestDetails = requests.map(request => ({
+            ...request.toObject(),
+            sender: {
+                ...request.sender.toObject(),
+                profilePictureUrl: `/api/users/profile-picture/${request.sender._id}`
+            }
+        }));
 
         return res.status(200).json({
             status: "success",
-            requests,
+            requests: requestDetails,
         });
     } catch (error) {
         return res.status(500).json({
@@ -139,7 +159,7 @@ const acceptFriendRequest = async (req, res) => {
     try {
         const userId = req.user.id; // Usuario autenticado (receptor de la solicitud)
         const senderId = req.params.id; // ID del usuario que envió la solicitud
-
+        console.log("Aceptar solicitud de amistad de:", senderId, userId);
         // Verificar si la solicitud existe
         const request = await FriendRequest.findOne({ sender: senderId, receiver: userId });
 
@@ -322,9 +342,36 @@ const getFriends = async (req, res) => {
         // Para cada amigo, obtener su información básica
         const friendDetails = await Promise.all(
             Array.from(friendIds).map(async (friendId) => {
-              return await User.findById(friendId).select("nickname image _id");
+                const friend = await User.findById(friendId).select("nickname image _id");
+                if (friend) {
+                    const obj = friend.toObject();
+                    obj.profilePictureUrl = `/api/users/profile-picture/${obj._id}`;
+                    return obj;
+                }
+                return null;
             })
-          );
+        );
+
+        // Para cada amigo, obtener cuántas cartas se han intercambiado
+        const lettersExchanged = await Promise.all(
+            Array.from(friendIds).map(async (friendId) => {
+                const count = await CorrectedLetter.countDocuments({
+                    $or: [
+                        { sender: userId, reviewer: friendId },
+                        { sender: friendId, reviewer: userId }
+                    ]
+                });
+                return { friendId, count };
+            })
+        );
+
+        // Añadirlo a friendDetails
+        lettersExchanged.forEach(({ friendId, count }) => {
+            const friend = friendDetails.find(f => f._id.toString() === friendId.toString());
+            if (friend) {
+                friend.lettersExchanged = count;
+            }
+        });
 
         return res.status(200).json({
             status: "success",
@@ -342,6 +389,54 @@ const getFriends = async (req, res) => {
 };
 
 
+
+getNonFriends = async (req, res) => {
+    try {
+        // Obtener el ID del usuario autenticado desde el token
+        const userId = req.user.id;
+
+        // Buscar usuarios que no son amigos
+        const following = await Follow.distinct("user2", { user1: userId });
+        const followers = await Follow.distinct("user1", { user2: userId });
+
+        const aggregated = [...new Set([...following, ...followers])];
+
+        const nonFriends = await User.find({ _id: { $nin: [...new Set([...following, ...followers, userId])] } })
+        .select("-email -password -role -bio -location");
+
+
+        const nonFriendDetails = await Promise.all(
+            nonFriends.map(async user => {
+                // Verifica si existe una solicitud de amistad pendiente
+                const existingRequest = await FriendRequest.findOne({
+                    sender: userId,
+                    receiver: user._id
+                });
+
+                return {
+                    ...user.toObject(),
+                    profilePictureUrl: `/api/users/profile-picture/${user._id}`,
+                    friendRequestSent: !!existingRequest // true si existe, false si no
+                };
+            })
+        );
+
+        return res.status(200).json({
+            status: "success",
+            count: nonFriendDetails.length,
+            users: nonFriendDetails
+        });
+    } catch (error) {
+        console.error("Error al obtener la lista de no amigos:", error);
+        return res.status(500).json({
+            status: "error",
+            message: "Error al intentar obtener la lista de no amigos",
+            error: error.message
+        });
+    }
+};
+
+
 module.exports = {
     checkFriendRequestExists, 
     pruebaFollow,
@@ -352,4 +447,5 @@ module.exports = {
     listFriendRequests,
     acceptFriendRequest,
     rejectFriendRequest,
+    getNonFriends
 };

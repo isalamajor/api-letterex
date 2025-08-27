@@ -129,12 +129,6 @@ const verifyCode = async (req, res) => {
     }
 };
 
-const pruebaUser = (req, res) => {
-    return res.status(200).json({
-        message: "Mensaje enviado desde user controller",
-        user: req.user
-    });
-};
 
 const register = async (req, res) => {
     try {
@@ -209,12 +203,15 @@ const login = async (req, res) => {
         });
     }
     
-    // Buscar usuario
-    let user = await User.findOne({ email: params.email }); // Buscar user con ese email
+    // Buscar usuario con ese email (params.email puede contener el email o el nickname) 
+    let user = await User.findOne({ email: params.email });
+    if (!user) {
+        user = await User.findOne({ nickname: params.email });
+    }
     if (!user) {
         return res.status(200).json({
             status: 1,
-            message: "Email no registrado"
+            message: "User not registered"
         });
     }
     
@@ -223,7 +220,7 @@ const login = async (req, res) => {
     if (!pwd) {
         return res.status(200).json({
             status: 2,
-            message: "Constraseña incorrecta"
+            message: "Wrong password"
         });
     }
 
@@ -234,8 +231,6 @@ const login = async (req, res) => {
     const userData = user.toObject();
     delete userData.password;
     delete userData.role;
-
-    console.log("User logged in:", userData);
 
     // Éxito
     return res.status(200).json({
@@ -406,8 +401,8 @@ const changePassword = async (req, res) => {
         // Verificar que la contraseña actual sea correcta
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
-            return res.status(400).json({
-                status: "error",
+            return res.status(401).json({
+                status: "wrong-password",
                 message: "La contraseña actual es incorrecta"
             });
         }
@@ -437,7 +432,6 @@ const changePassword = async (req, res) => {
 
 const uploadProfilePicture = async (req, res) => {
     try {
-        console.log("TEST1");
         // Verificar archivo recibido
         if (!req.file) {
             return res.status(400).json({
@@ -446,7 +440,6 @@ const uploadProfilePicture = async (req, res) => {
             });
         }
         
-        console.log("TEST2");
         // Verificar si el usuario existe
         const userId = req.user.id; 
         const user = await User.findById(userId);
@@ -459,13 +452,22 @@ const uploadProfilePicture = async (req, res) => {
             });
         }
         
-        console.log("TEST3");
+        const oldImageName = user.image;
+        const oldImagePath = path.resolve(`./uploads/profile_pictures/${oldImageName}`);
+        console.log("Imagen anterior:", oldImageName);
+        console.log("Nueva imagen:", req.file.filename);
 
         // Actualizar la ruta de la imagen en la base de datos
         user.image = req.file.filename; // Guardamos solo el nombre del archivo
-        await user.save();
-        
-        console.log("TEST4");
+        const resSave = await user.save();
+        console.log("resSave: ", resSave);
+
+        // Eliminar la imagen anterior si existe
+        if (oldImageName && oldImageName !== "default.png") {
+            if (fs.existsSync(oldImagePath)) {
+                fs.unlinkSync(oldImagePath);
+            }
+        }
 
         return res.status(200).json({
             status: "success",
@@ -598,9 +600,42 @@ const checkEmail = async (req, res) => {
 };
 
 
+const deleteAccount = async (req, res) => {
+    const userId = req.user.id; // Usa .id si es lo que usas en el resto del código
+    const password = req.body.password;
+
+    if (!password) {
+        return res.status(400).json({ status: -1, message: "Falta la contraseña" });
+    }
+
+    // Verificar la contraseña
+    const user = await User.findById(userId);
+    if (!user) {
+        return res.status(404).json({ status: -1, message: "Usuario no encontrado" });
+    }
+
+    // Si no tienes user.comparePassword, usa bcrypt:
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+        return res.status(401).json({ status: -1, message: "Contraseña incorrecta" });
+    }
+
+    // Eliminar usuario de la base de datos
+    const deleted = await User.findByIdAndDelete(userId);
+
+    if (deleted) {
+        return res.status(200).json({
+            status: "success",
+            message: "Cuenta eliminada exitosamente"
+        });
+    }
+    return res.status(500).json({
+        status: "error",
+        message: "Error en el servidor al eliminar cuenta"
+    });
+};
 
 module.exports = { 
-    pruebaUser, 
     register, 
     login, 
     profile, 
@@ -613,6 +648,7 @@ module.exports = {
     checkNickname,
     checkEmail,
     sendVerificationCode,
-    verifyCode
+    verifyCode,
+    deleteAccount
 };
 

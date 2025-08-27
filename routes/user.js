@@ -7,7 +7,6 @@ const uploads = require("../middlewares/uploads");
 
 
 // Definir rutas
-router.get("/prueba-user", auth.authentificate, UserController.pruebaUser); // Meter en postman header Authorization : token
 router.post("/register", UserController.register);
 router.post("/login", UserController.login);
 router.get("/profile/:id?", auth.authentificate, UserController.profile);
@@ -20,6 +19,7 @@ router.get("/check-nickname/:nickname", UserController.checkNickname);
 router.get("/check-email/:email", UserController.checkEmail);
 router.post("/verificate-email/:email", UserController.sendVerificationCode)
 router.post("/check-code", UserController.verifyCode);
+router.delete("/delete-account", auth.authentificate, UserController.deleteAccount);
 
 
 
