@@ -52,6 +52,10 @@ const CorrectedletterSchema = new Schema({
     corrected_at: {
         type: Date,
         default: Date.now
+    },
+    received_at: {
+        type: Date,
+        default: Date.now
     }
 });
 

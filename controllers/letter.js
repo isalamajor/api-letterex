@@ -73,6 +73,14 @@ const viewLetter = async (req, res) => {
             return res.status(403).json({ message: "Unauthorized to view this letter." });
         }
 
+        // Obtener el nickname y la imagen de los usuarios con los que se compartió la carta
+        const sharedWithDetails = await Promise.all(
+            letter.sharedWith.map(async (friendId) => {
+                const friend = await User.findById(friendId).select("_id nickname image");
+                return friend ? friend.toObject() : null; // Convertir a objeto normal o retornar null si no existe
+            })
+        );
+
         // Crear el objeto con la información de la carta
         const letterDetails = {
             created_at: letter.created_at,
@@ -81,7 +89,7 @@ const viewLetter = async (req, res) => {
             diary: letter.diary || null,
             language: letter.language,
             audio: letter.audio || null,
-            sharedWith: letter.sharedWith || []
+            sharedWith: sharedWithDetails.filter(Boolean) || []
         };
         console.log("letterDetails", letterDetails);
         return res.status(200).json({
@@ -155,7 +163,8 @@ const listLetters = async (req, res) => {
 
         // Obtener solo los campos necesarios, excluyendo contenido y audio
         const letters = await Letter.find({ author: userId })
-            .select("title diary language created_at sharedWith");
+            .select("title diary language created_at sharedWith")
+            .sort({ created_at: -1 }); // Ordenar por fecha de creación (más recientes primero)
 
 
         // Para cada usuario de sharedWith, mirar si existe una CorrectedLetter con sentBack = true. Añadir a usuario el campo correctionSentBack
@@ -237,7 +246,8 @@ const shareLetter = async (req, res) => {
                     sender: letter.author,
                     reviewer: friendId,
                     corrections: [],
-                    sentBack: false
+                    sentBack: false,
+                    received_at: Date.now()
                 });
 
                 // Guardar el nuevo CorrectedLetter
@@ -259,8 +269,10 @@ const shareLetter = async (req, res) => {
 };
 
 
-const getUserDiaries = async (userId) => {
+const getUserDiaries = async (req, res) => {
     try {
+        const userId = req.user.id;
+        
         // Buscar todas las cartas del usuario
         const letters = await Letter.find({ author: userId }).select("diary");
         
@@ -322,7 +334,7 @@ const countLetters = async (req, res) => {
       });
     }
   };
-  
+
 
 
 module.exports = { 

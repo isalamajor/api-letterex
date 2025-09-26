@@ -6,6 +6,7 @@ const mongoosePaginate = require("mongoose-pagination");
 const path = require("path");
 const fs = require('fs');
 
+
 const sendVerificationCode = async (req, res) => {
     const { email } = req.params;
 
@@ -45,13 +46,17 @@ const sendVerificationCode = async (req, res) => {
     });
 
     try {
-        await transporter.sendMail({
+        const templatePath = path.join(process.cwd(), "templates", "verificationCode.html");
+        let html = fs.readFileSync(templatePath, "utf8");
+        html = html.replace('${code}', code).replace('${new Date().getFullYear()}', new Date().getFullYear());
+
+        const resTrans = await transporter.sendMail({
             from: `"Letterex 🐸" <${process.env.EMAIL_USER}>`,
             to: email,
-            subject: 'Verification Code',
-            html: `<h1>Letterex Registration</h1><p>Here's your verification code to register to Letterex: <strong>${code}</strong></p>`
+            subject: 'Verification Code - Register',
+            html: html
         });
-
+        console.log("resTrans: ", resTrans);
         return res.status(200).json({ 
             code: 0,
             message: 'Código enviado'
@@ -68,13 +73,12 @@ const sendVerificationCode = async (req, res) => {
 
 const verifyCode = async (req, res) => {
     const { email, code } = req.body;
-
     // Validar que se envíen los parámetros necesarios
     if (!email || !code) {
         return res.status(400).json({
             status: "error",
             code: -1,
-            message: "Email y código requeridos"
+            message: "Some fields are missing"
         });
     }
 
@@ -87,7 +91,7 @@ const verifyCode = async (req, res) => {
             return res.status(404).json({
                 status: "error",
                 code: -2,
-                message: "Código de verificación no encontrado o incorrecto"
+                message: "Wrong verification code"
             });
         }
 
@@ -96,7 +100,7 @@ const verifyCode = async (req, res) => {
             return res.status(400).json({
                 status: "error",
                 code: -3,
-                message: "El código ya ha sido utilizado"
+                message: "Verification code already used"
             });
         }
 
@@ -105,7 +109,7 @@ const verifyCode = async (req, res) => {
             return res.status(400).json({
                 status: "error",
                 code: -4,
-                message: "El código ha expirado"
+                message: "Verification code has expired"
             });
         }
 
@@ -116,14 +120,14 @@ const verifyCode = async (req, res) => {
         return res.status(200).json({
             status: "success",
             code: 0,
-            message: "Código verificado correctamente"
+            message: "Verification code verified successfully"
         });
     } catch (error) {
         console.error("Error al verificar el código:", error);
         return res.status(500).json({
             status: "error",
             code: -1,
-            message: "Error en el servidor al verificar el código",
+            message: "Error verifying code",
             error: error.message
         });
     }
@@ -270,8 +274,10 @@ const profile = async (req, res) => {
 
     console.log("Usuario encontrado:", user);
 
+
     // Eliminar constraseña y rol del objeto a devolver
     const userResponse = user.toObject(); // Convierte el documento de Mongoose a un objeto plano
+    userResponse.profilePictureUrl = `/api/users/profile-picture/${userResponse._id}`;
     delete userResponse.password;
     delete userResponse.role;
 
