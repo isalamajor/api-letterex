@@ -30,6 +30,10 @@ const LetterSchema = Schema({
     created_at: {
         type: Date,
         default: Date.now
+    },
+    deleted: {
+        type: Boolean,
+        default: false
     }
 })
 

@@ -6,7 +6,6 @@ const CorrectedLetter = require("../models/correctedLetter");
 
 const saveLetter = async (req, res) => {
     try {
-        console.log("req.body", req.body);
         // Guardar contenido del body
         const { title, content, diary, language, created_at } = req.body; // created_at formato "2025-01-30"
         // Guardar contenido del body
@@ -21,7 +20,6 @@ const saveLetter = async (req, res) => {
             now.getMilliseconds()
           );
         
-        console.log("Variables asignadas:", { content, title, diary, language, created_at_conv });
         const userId = req.user.id; 
 
         if (!title || !content || !language || !created_at_conv) { // created at formato "2025-01-30"
@@ -91,7 +89,7 @@ const viewLetter = async (req, res) => {
             audio: letter.audio || null,
             sharedWith: sharedWithDetails.filter(Boolean) || []
         };
-        console.log("letterDetails", letterDetails);
+        
         return res.status(200).json({
             message: "Letter retrieved successfully.",
             letter: letterDetails
@@ -135,24 +133,54 @@ const editLetter = async (req, res) => {
 };
 
 
-const deleteLetter = async (req, res) => {
+const deleteLetter = async (letterId) => {
     try {
-        const { letterId } = req.params;
-        const userId = req.user.id;
-
+        console.log("deleteLetter id", letterId);
         const letter = await Letter.findById(letterId);
         if (!letter) {
-            return res.status(404).json({ message: "Letter not found." });
+            return -2;
         }
 
-        if (letter.author.toString() !== userId) {
-            return res.status(403).json({ message: "Unauthorized to delete this letter." });
-        }
+        letter.deleted = true;
+        res = await letter.save();
 
-        await Letter.findByIdAndDelete(letterId);
-        return res.status(200).json({ message: "Letter deleted successfully." });
+        if (!res) {
+            return -1;
+        }
+        return 0;
     } catch (error) {
-        return res.status(500).json({ message: "Error deleting letter", error: error.message });
+        return -1;
+    }
+};
+
+
+const deleteLetters = async (req, res) => {
+    try {
+        console.log("req.body", req.body);
+        const letterIds = req.body.letters;
+        const userId = req.user.id;
+        let countDeleted = 0;
+
+        if (!Array.isArray(letterIds) || letterIds.length === 0) {
+            console.log("No letter IDs provided.");
+            return res.status(400).json({ message: "No letter IDs provided." });
+        }
+
+        const results = await Promise.all(
+            letterIds.map(letterId => deleteLetter(letterId))
+        );
+        countDeleted = results.filter(result => result === 0).length;
+
+
+        console.log(`Requested to delete ${letterIds.length} letters. Successfully deleted ${countDeleted}.`);
+
+        if (countDeleted === letterIds.length) { return res.status(200).json({ message: "All letters deleted successfully.", countDeleted }); }
+        else if (countDeleted < letterIds.length) { return res.status(201).json({ message: "Some letters deleted successfully, not all.", countDeleted }); }
+        return res.status(500).json({ message: "Error deleting letters." });
+    }
+    catch (error) {
+        console.error("Error deleting letters:", error);
+        return res.status(500).json({ message: "Error deleting letters", error: error.message });
     }
 };
 
@@ -162,10 +190,9 @@ const listLetters = async (req, res) => {
         const userId = req.user.id;
 
         // Obtener solo los campos necesarios, excluyendo contenido y audio
-        const letters = await Letter.find({ author: userId })
+        const letters = await Letter.find({ author: userId, deleted: false })
             .select("title diary language created_at sharedWith")
-            .sort({ created_at: -1 }); // Ordenar por fecha de creación (más recientes primero)
-
+            .sort({ created_at: -1 }); 
 
         // Para cada usuario de sharedWith, mirar si existe una CorrectedLetter con sentBack = true. Añadir a usuario el campo correctionSentBack
         const lettersWithCorrections = await Promise.all(
@@ -174,9 +201,7 @@ const listLetters = async (req, res) => {
                 // Obtener detalles de los usuarios con los que se comparte la carta
                 const sharedWithDetails = await Promise.all(
                     letter.sharedWith.map(async (friendId) => {
-                        console.log("friendId", friendId);
                         const friend = await User.findById(friendId).select("nickname image");
-                        console.log("friend", friend);
                         if (!friend) return null; // Si no existe el usuario, retornar null
                         
                         // Verificar si hay correcciones enviadas de vuelta por este usuario
@@ -201,7 +226,6 @@ const listLetters = async (req, res) => {
                         };
                     })
                 );
-                //console.log("sharedWithDetails", sharedWithDetails);
                 const letterObj = letter.toObject();
                 letterObj.sharedWith = sharedWithDetails.filter(user => user !== null); // Filtrar usuarios nulos 
                 return letterObj; // Convertir a objeto normal
@@ -218,7 +242,6 @@ const listLetters = async (req, res) => {
 const shareLetter = async (req, res) => {
     try {
         const letterId = req.params.id;
-        console.log("letterId", letterId);
         const { sharedWith } = req.body;
         const userId = req.user.id;
 
@@ -341,7 +364,7 @@ module.exports = {
     saveLetter,
     viewLetter, 
     editLetter, 
-    deleteLetter, 
+    deleteLetters, 
     listLetters, 
     shareLetter,
     getUserDiaries,

@@ -140,14 +140,18 @@ const getCorrectionsByLetter = async (req, res) => {
 
 const getReceivedLetters = async (req, res) => {
     try {
+        console.log("getReceivedLetters called");
         const userId = req.user.id;
-
         // Buscar todas las cartas a corregir donde el usuario es el revisor
-        const correctedLetters = await CorrectedLetter.find({ reviewer: userId })
-        .select('originalLetter sender sentBack corrected_at received_at seen')
-        .populate('originalLetter', '-sharedWith -content -diary') // trae toda la carta
+        const correctedLettersRaw = await CorrectedLetter.find({ reviewer: userId })
+        .select('originalLetter sender sentBack corrected_at received_at seen deleted')
+        .populate('originalLetter', '-sharedWith -content -diary')
         .populate('sender', '_id image nickname')
-        .sort({ received_at: -1 }); // Ordenar por fecha de creación (más recientes primero)
+        .sort({ received_at: -1 });
+
+        const correctedLetters = correctedLettersRaw.filter(cl => cl.originalLetter !== null);
+
+        console.log("Corrected Letters fetched:", correctedLetters);
     
         // Marcar las cartas como vistas (después de haberlas obtenido)
         const rep = await CorrectedLetter.updateMany({ reviewer: userId }, { seen: true });
@@ -157,6 +161,7 @@ const getReceivedLetters = async (req, res) => {
             letters: correctedLetters
         });
     } catch (error) {
+        console.log("error fetching received corrected letters:", error);
         return res.status(500).json({
             status: "error",
             message: "Error fetching received corrected letters",
@@ -225,6 +230,56 @@ const countCorrectedLetters = async (req, res) => {
     }
   };
 
+const deleteCorrectedLetter = async (req, res) => {
+    try {
+        const { correctedLetterId } = req.params;
+        const userId = req.user.id;
+
+        const letter = await CorrectedLetter.findById(correctedLetterId);
+
+        if (!letter) {
+            res.status(404).json({
+                status:"error",
+                message: "Corrected letter not found"
+            })
+        }
+
+        if (letter.reviewer !== userId) {
+            res.status(403).json({
+                status:"error",
+                message: "User not authorized to delete this letter"
+            })
+        }
+
+        if (!letter.deleted) {
+            res.status(402).json({
+                status:"error",
+                message: "Original letter not deleted by author"
+            })
+        }
+
+        const resDelete = CorrectedLetter.findByIdAndDelete(correctedLetterId);
+
+        if (resDelete) {
+            res.status(200).json({
+                status: "success", 
+                message: "Corrected Letter and Letter deleted successfully"
+            })
+        }
+        res.status(401).json({
+            status:"error",
+            message: "Error when deleting letter"
+        })
+
+    } catch(error) {
+        res.status(400).json({
+            status:"error",
+            message: error.message
+        })
+    }
+}
+
+
 
 
 module.exports = {
@@ -233,5 +288,6 @@ module.exports = {
     sendBack,
     getCorrectionsByLetter,
     getReceivedLetters,
-    countCorrectedLetters
+    countCorrectedLetters,
+    deleteCorrectedLetter
 };
