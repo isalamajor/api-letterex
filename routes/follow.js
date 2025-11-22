@@ -10,6 +10,7 @@ router.delete("/unfollow/:id", auth.authentificate, FollowController.deleteFollo
 router.get("/request/:id", auth.authentificate, FollowController.checkFriendRequestExists); // OK
 router.get("/friends", auth.authentificate, FollowController.getFriends); // OK
 router.get("/non-friends", auth.authentificate, FollowController.getNonFriends); // OK
+router.get("/suggested", auth.authentificate, FollowController.getSuggestedUsers); // OK
 router.post("/request/:id", auth.authentificate, FollowController.sendFriendRequest); // OK
 router.get("/requests", auth.authentificate, FollowController.listFriendRequests); // OK
 router.post("/accept/:id", auth.authentificate, FollowController.acceptFriendRequest); // OK

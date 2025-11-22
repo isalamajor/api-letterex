@@ -14,7 +14,8 @@ const LetterSchema = Schema({
         required: true
     },
     diary: {
-        type: String
+        type: String,
+        required: false
     },
     language: {
         type: String,

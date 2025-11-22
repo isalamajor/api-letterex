@@ -26,7 +26,6 @@ const sendVerificationCode = async (req, res) => {
             { code, expiresAt, verified: false }, // Actualizar estos campos
             { new: true, upsert: true } // Crear uno nuevo si no existe
         );
-        console.log("Código de verificación guardado o actualizado:", verificationCode);
 
     } catch (error) {
         return res.status(500).json({ 
@@ -56,7 +55,6 @@ const sendVerificationCode = async (req, res) => {
             subject: 'Verification Code - Register',
             html: html
         });
-        console.log("resTrans: ", resTrans);
         return res.status(200).json({ 
             code: 0,
             message: 'Código enviado'
@@ -249,7 +247,6 @@ const login = async (req, res) => {
 const profile = async (req, res) => {
     // Recibir parámetro id de usuario
     const id = req.params.id;
-    console.log("ID de usuario recibido:", id);
 
     // Si no hay id utilizar el del token
     if (!id && req.user && req.user.id) {
@@ -271,9 +268,6 @@ const profile = async (req, res) => {
             message: "Usuario no encontrado"
         });
     }
-
-    console.log("Usuario encontrado:", user);
-
 
     // Eliminar constraseña y rol del objeto a devolver
     const userResponse = user.toObject(); // Convierte el documento de Mongoose a un objeto plano
@@ -333,7 +327,7 @@ const update = async (req, res) => {
         const userId = req.user.id;
 
         // Recoger datos de la petición
-        const updateData = req.body;
+        const { image, ...updateData } = req.body;
         // Validar que no se intente cambiar información no permitida sin autorización explícita
         if (updateData.password || updateData.email || updateData.nickname) {
             return res.status(400).json({
@@ -341,7 +335,6 @@ const update = async (req, res) => {
                 message: "No puedes actualizar ni la contraseña, ni el nickname ni el email desde esta función"
             });
         }
-        console.log("Datos a actualizar:", updateData);
         // Actualizar el usuario en la base de datos
         const updatedUser = await User.findByIdAndUpdate(
             userId,                // Filtro por el ID del usuario
@@ -349,7 +342,6 @@ const update = async (req, res) => {
             { new: true }          // Devuelve el usuario actualizado
         );
 
-        console.log("Usuario actualizado:", updatedUser);
         // Validar que el usuario exista y haya sido actualizado
         if (!updatedUser) {
             return res.status(404).json({
@@ -437,94 +429,143 @@ const changePassword = async (req, res) => {
 
 
 const uploadProfilePicture = async (req, res) => {
-    try {
-        // Verificar archivo recibido
-        if (!req.file) {
-            return res.status(400).json({
-                status: "error",
-                message: "No se subió ninguna imagen"
-            });
-        }
-        
-        // Verificar si el usuario existe
-        const userId = req.user.id; 
-        const user = await User.findById(userId);
-        if (!user) {
-            // Si el usuario no existe, eliminar el archivo subido subido por multer
-            fs.unlinkSync(req.file.path);
-            return res.status(404).json({
-                status: "error",
-                message: "Usuario no encontrado"
-            });
-        }
-        
-        const oldImageName = user.image;
-        const oldImagePath = path.resolve(`./uploads/profile_pictures/${oldImageName}`);
-        console.log("Imagen anterior:", oldImageName);
-        console.log("Nueva imagen:", req.file.filename);
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        status: "error",
+        message: "No se subió ninguna imagen"
+      });
+    }
 
-        // Actualizar la ruta de la imagen en la base de datos
-        user.image = req.file.filename; // Guardamos solo el nombre del archivo
-        const resSave = await user.save();
-        console.log("resSave: ", resSave);
+    const userId = req.user.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({
+        status: "error",
+        message: "Usuario no encontrado"
+      });
+    }
 
-        // Eliminar la imagen anterior si existe
-        if (oldImageName && oldImageName !== "default.png") {
-            if (fs.existsSync(oldImagePath)) {
-                fs.unlinkSync(oldImagePath);
+    // Eliminar cualquier versión anterior del archivo (diferente extensión)
+    //if (user.image !== "default.png") {
+        const folder = path.resolve("./uploads/profile_pictures");
+        const files = fs.readdirSync(folder);
+        const oldFiles = files.filter(f => f.startsWith(userId) && f !== req.file.filename);
+
+        for (const file of oldFiles) {
+            try {
+                fs.unlinkSync(path.join(folder, file));
+            } catch (err) {
+                console.warn(`⚠️ No se pudo eliminar ${file}:`, err.message);
             }
         }
+    //}
 
-        return res.status(200).json({
-            status: "success",
-            message: "Foto de perfil actualizada con éxito",
-            userId: user._id,
-            profilePicture: user.image
-        });
-    } catch (error) {
-        console.log("Error al subir la foto de perfil:", error);
-        return res.status(500).json({
-            status: "error",
-            message: "Error en al subir la foto de perfil"
-        });
-    }
+    // Guardar el nuevo nombre del archivo en la base de datos
+    const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { image: req.file.filename },
+        { new: true }
+    );
+    
+    return res.status(200).json({
+      status: "success",
+      message: "Foto de perfil actualizada con éxito",
+      userId: user._id,
+      profilePicture: updatedUser.image
+    });
+
+  } catch (error) {
+    console.error("Error al subir la foto de perfil:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error al subir la foto de perfil"
+    });
+  }
 };
+
+
+const deleteProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: "error",
+        message: "Authentication failed."
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found."
+      });
+    }
+
+    if (!user.image || user.image === "default.png") {
+      return res.status(200).json({
+        status: "success",
+        message: "No profile picture to delete."
+      });
+    }
+
+    // Borrar imagen anterior
+    const imagePath = path.resolve(`./uploads/profile_pictures/${user.image}`);
+        try {
+            if (fs.existsSync(imagePath)) { 
+                fs.unlinkSync(imagePath); 
+            }
+        } catch (err) {
+        console.warn("⚠️ Error al eliminar imagen:", err.message);
+    }
+
+    // Actualizar campo a default
+    user.image = "default.png";
+    await user.save();
+
+    return res.status(200).json({
+      status: "success",
+      message: "Image deleted successfully."
+    });
+
+  } catch (error) {
+    console.error("Error deleting profile picture:", error);
+    return res.status(500).json({
+      status: "error", 
+      message: error.message
+    });
+  }     
+};
+
     
 
 const getProfilePicture = async (req, res) => {
-    const userId = req.params.id;
-    try {
-        // Buscar usuario en la BD
-        const user = await User.findById(userId);
+  const userId = req.params.id;
+  try {
+    const user = await User.findById(userId);
 
-        if (!user || !user.image) {
-            return res.status(404).json({
-                status: "error",
-                message: "Usuario o imagen no encontrado"
-            });
-        }
-        // Ruta de la imagen
-        const filePath = path.resolve(`./uploads/profile_pictures/${user.image}`);
-        
-        console.log(filePath);
-        // Verifica si el archivo existe
-        if (!fs.existsSync(filePath)) {
-            return res.status(404).json({
-                status: "error",
-                message: "La imagen no existe"
-            });
-        }
+    // Si no existe el usuario o la imagen no está definida, usar default
+    const imageName = (user && user.image) ? user.image : "default.png";
+    const filePath = path.resolve(`./uploads/profile_pictures/${imageName}`);
 
-        // Envía el archivo al cliente
-        console.log("Enviando imagen de perfil:", filePath);
-        res.sendFile(filePath);
-    } catch (error) {
-        return res.status(500).json({
-            status: "error",
-            message: "Error al obtener la imagen"
-        });
-    }
+    // Si el archivo no existe, usar default
+    const finalPath = fs.existsSync(filePath)
+      ? filePath
+      : path.resolve(`./uploads/profile_pictures/default.png`);
+
+    return res.sendFile(finalPath);
+
+  } catch (error) {
+    console.error("Error al obtener la imagen:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error al obtener la imagen"
+    });
+  }
 };
+
 
 
 const searchUsers = async (req, res) => {
@@ -649,6 +690,7 @@ module.exports = {
     update, 
     changePassword, 
     uploadProfilePicture, 
+    deleteProfilePicture,
     getProfilePicture,
     searchUsers,
     checkNickname,

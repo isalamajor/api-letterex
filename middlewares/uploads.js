@@ -7,7 +7,11 @@ const storage = multer.diskStorage({
         cb(null, "./uploads/profile_pictures"); // Carpeta donde se guardarán las imágenes
     },
     filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`); // Renombrar el archivo con un timestamp único
+        const ext = path.extname(file.originalname);
+        // Usa el ID del usuario (desde el token) como nombre del archivo
+        // req.user.id viene de tu middleware de autenticación
+        const filename = `${req.user.id}${ext}`;
+        cb(null, filename);
     }
 });
 

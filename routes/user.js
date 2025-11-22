@@ -14,6 +14,7 @@ router.get("/list-users/:page?", auth.authentificate, UserController.listUsers);
 router.put("/update", auth.authentificate, UserController.update); 
 router.put("/change-password", auth.authentificate, UserController.changePassword); // currentPassword, newPassword
 router.put("/profile-picture", [auth.authentificate, uploads.single("file0")], UserController.uploadProfilePicture)
+router.delete("/profile-picture",  auth.authentificate, UserController.deleteProfilePicture);
 router.get("/profile-picture/:id", UserController.getProfilePicture);
 router.get("/check-nickname/:nickname", UserController.checkNickname);
 router.get("/check-email/:email", UserController.checkEmail);

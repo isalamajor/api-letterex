@@ -133,14 +133,70 @@ const editLetter = async (req, res) => {
 };
 
 
+const editDiary = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const letterId = req.body.letterId;
+        const newDiary = req.body.diary;
+
+        const letter = Letter.findById(letterId);
+
+        if (!userId || letter.author !== userId) {
+            return res.status(401).json({
+            status: "error",
+            message: "Unauthorized to edit this letter"
+            })
+        }
+
+        if (!newDiary) {
+            return res.status(400).json({
+            status: "error",
+            message: "New diary name is missing"
+            })
+        }
+
+        if (newDiary === "Unclassified" || newDiary.trim() === "") {
+            letterd.iary = undefined
+        } else {
+            letter.diary = newDiary
+        }
+        const letterUpdated = await letter.save()
+        console.log("updated user: ", letterUpdated);
+
+        if (letterUpdated && letterUpdated.diary === newDiary) {
+            return res.status(200).json({
+            status: "success",
+            message: "Updated the letter's diary successfully"
+            })
+        }
+
+        return res.status(400).json({
+            status: "error",
+            message: "Failed to update diary for this letter"
+        })
+
+    } catch (error) {
+        return res.status(400).json({
+            status: "error",
+            message: "Error editing a letter's diary: " + error
+        })
+    }
+}
+
+
 const deleteLetter = async (letterId) => {
     try {
-        console.log("deleteLetter id", letterId);
         const letter = await Letter.findById(letterId);
         if (!letter) {
             return -2;
         }
 
+        // Si no está compartida, eliminarla físicamente
+        if (letter.sharedWith.length === 0) {
+            await Letter.findByIdAndDelete(letterId);
+            return 0;
+        }
+        
         letter.deleted = true;
         res = await letter.save();
 
@@ -156,13 +212,11 @@ const deleteLetter = async (letterId) => {
 
 const deleteLetters = async (req, res) => {
     try {
-        console.log("req.body", req.body);
         const letterIds = req.body.letters;
         const userId = req.user.id;
         let countDeleted = 0;
 
         if (!Array.isArray(letterIds) || letterIds.length === 0) {
-            console.log("No letter IDs provided.");
             return res.status(400).json({ message: "No letter IDs provided." });
         }
 
@@ -170,9 +224,6 @@ const deleteLetters = async (req, res) => {
             letterIds.map(letterId => deleteLetter(letterId))
         );
         countDeleted = results.filter(result => result === 0).length;
-
-
-        console.log(`Requested to delete ${letterIds.length} letters. Successfully deleted ${countDeleted}.`);
 
         if (countDeleted === letterIds.length) { return res.status(200).json({ message: "All letters deleted successfully.", countDeleted }); }
         else if (countDeleted < letterIds.length) { return res.status(201).json({ message: "Some letters deleted successfully, not all.", countDeleted }); }
@@ -363,7 +414,8 @@ const countLetters = async (req, res) => {
 module.exports = { 
     saveLetter,
     viewLetter, 
-    editLetter, 
+    editLetter,
+    editDiary,
     deleteLetters, 
     listLetters, 
     shareLetter,

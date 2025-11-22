@@ -9,6 +9,7 @@ console.log(LetterController);
 router.post("/new", auth.authentificate, LetterController.saveLetter); // Guardar una carta
 router.get("/view/:letterId", auth.authentificate, LetterController.viewLetter); // Obtener info y contenido 
 router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Editar una carta
+router.put("/edit-diary", auth.authentificate, LetterController.editLetter); // Editar el diario de una carta
 router.delete("/delete/", auth.authentificate, LetterController.deleteLetters); // Eliminar una carta
 router.get("/list", auth.authentificate, LetterController.listLetters); // Listar todas las cartas del usuario
 router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Compartir una carta
