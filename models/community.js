@@ -1,4 +1,5 @@
 const {Schema, model} = require('mongoose');
+const { LANGUAGES } = require('../constants')
 
 const CommunitySchema = Schema({
     name: {
@@ -11,9 +12,13 @@ const CommunitySchema = Schema({
     },
     language: {
         type: String,
-        required: true
+        required: true,
+        enum: {
+            values: LANGUAGES,
+            message: "{VALUE} is not a valid language"
+        }
     },
-    public: {
+    isPrivate: {
         type: Boolean,
         defautl: false
     },
@@ -56,5 +61,6 @@ const CommunitySchema = Schema({
         default: Date.now
     }
 })
+
 
 module.exports = model("Community", CommunitySchema, "communities")

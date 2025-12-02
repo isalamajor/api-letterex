@@ -489,12 +489,6 @@ const uploadProfilePicture = async (req, res) => {
 const deleteProfilePicture = async (req, res) => {
   try {
     const userId = req.user.id;
-    if (!userId) {
-      return res.status(401).json({
-        status: "error",
-        message: "Authentication failed."
-      });
-    }
 
     const user = await User.findById(userId);
     if (!user) {
@@ -505,8 +499,8 @@ const deleteProfilePicture = async (req, res) => {
     }
 
     if (!user.image || user.image === "default.png") {
-      return res.status(200).json({
-        status: "success",
+      return res.status(400).json({
+        status: "error",
         message: "No profile picture to delete."
       });
     }

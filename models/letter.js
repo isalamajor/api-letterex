@@ -1,4 +1,5 @@
 const {Schema, model} = require('mongoose');
+const { languages } = require('../constants')
 
 const LetterSchema = Schema({
     author: {
@@ -19,7 +20,11 @@ const LetterSchema = Schema({
     },
     language: {
         type: String,
-        required: true
+        required: true,
+        enum: {
+            values: languages,
+            message: "{VALUE} is not a valid language"
+        }
     }, 
     audio: { // Filepath del audio
         type: String

@@ -1,4 +1,6 @@
 const { Schema, model } = require('mongoose');
+const { languages } = require('../constants')
+const languagesEnum = (languages || []).concat(null);
 
 const UserSchema = Schema({
     nickname: {
@@ -15,27 +17,51 @@ const UserSchema = Schema({
     },
     masterLanguage: {
         type: String,
-        required: true
+        required: true,
+        enum: {
+            values: languagesEnum,
+            message: "{VALUE} is not a valid language"
+        }
     },
     masterLanguage2: {
         type: String,
-        default: null
+        default: null,
+        enum: {
+            values: languagesEnum,
+            message: "{VALUE} is not a valid language"
+        }
     },
     masterLanguage3: {
         type: String,
-        default: null
+        default: null,
+        enum: {
+            values: languagesEnum,
+            message: "{VALUE} is not a valid language"
+        }
     },
     learningLanguage: {
         type: String, 
-        required: true
+        required: true,
+        enum: {
+            values: languagesEnum,
+            message: "{VALUE} is not a valid language"
+        }
     }, 
     learningLanguage2: {
         type: String,
-        default: null
+        default: null,
+        enum: {
+            values: languagesEnum,
+            message: "{VALUE} is not a valid language"
+        }
     }, 
     learningLanguage3: {
         type: String,
-        default: null
+        default: null,
+        enum: {
+            values: languagesEnum,
+            message: "{VALUE} is not a valid language"
+        }
     },
     role: {
         type: String,
