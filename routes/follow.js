@@ -3,20 +3,51 @@ const router = express.Router();
 const FollowController = require("../controllers/follow");
 const auth = require("../middlewares/auth");
 
-
 // Definir rutas
 router.post("/add/:id", auth.authentificate, FollowController.saveFollow);
-router.delete("/unfollow/:id", auth.authentificate, FollowController.deleteFollow);
-router.get("/request/:id", auth.authentificate, FollowController.checkFriendRequestExists); // OK
+router.delete(
+  "/unfollow/:id",
+  auth.authentificate,
+  FollowController.deleteFollow,
+);
+router.get(
+  "/request/:id",
+  auth.authentificate,
+  FollowController.checkFriendRequestExists,
+); // OK
 router.get("/friends", auth.authentificate, FollowController.getFriends); // OK
 router.get("/non-friends", auth.authentificate, FollowController.getNonFriends); // OK
-router.get("/suggested", auth.authentificate, FollowController.getSuggestedUsers); // OK
-router.post("/request/:id", auth.authentificate, FollowController.sendFriendRequest); // OK
-router.get("/requests", auth.authentificate, FollowController.listFriendRequests); // OK
-router.post("/accept/:id", auth.authentificate, FollowController.acceptFriendRequest); // OK
-router.post("/decline/:id", auth.authentificate, FollowController.rejectFriendRequest); // OK
 
-
+router.get(
+  "/non-friends/:filter",
+  auth.authentificate,
+  FollowController.getNonFriendsByFilter,
+);
+router.get(
+  "/suggested",
+  auth.authentificate,
+  FollowController.getSuggestedUsers,
+); // OK
+router.post(
+  "/request/:id",
+  auth.authentificate,
+  FollowController.sendFriendRequest,
+); // OK
+router.get(
+  "/requests",
+  auth.authentificate,
+  FollowController.listFriendRequests,
+); // OK
+router.post(
+  "/accept/:id",
+  auth.authentificate,
+  FollowController.acceptFriendRequest,
+); // OK
+router.post(
+  "/decline/:id",
+  auth.authentificate,
+  FollowController.rejectFriendRequest,
+); // OK
 
 // Exportar router
 module.exports = router;

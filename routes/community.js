@@ -12,7 +12,7 @@ router.post("/request-accept", auth.authentificate, CommunityController.acceptRe
 router.post("/request-reject/", auth.authentificate, CommunityController.rejectRequest); // Reject pendingRequest, body: { communityId, userId }
 router.post("/exit/:id", auth.authentificate, CommunityController.exitCommunity); 
 router.post("/kick", auth.authentificate, CommunityController.kickUser); // { communityId, userId }
-router.get("/members/:id", auth.authentificate, CommunityController.getRequests);
+router.get("/members/:id", auth.authentificate, CommunityController.getMembers);
 router.get("/:language", auth.authentificate, CommunityController.getCommunities); // Obtener comunidades del usuario logeado o del id por idioma
 router.get("/", auth.authentificate, CommunityController.getUserCommunities); // Obtener comunidades a las que pertenece el usuario
 router.delete("/:id", auth.authentificate, CommunityController.deleteCommunity);

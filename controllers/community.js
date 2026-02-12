@@ -1,9 +1,6 @@
+const mongoose = require("mongoose");
 const { User } = require("../models/user");
 const Community = require("../models/community");
-const CorrectedLetter = require("../models/correctedLetter");
-const FriendRequest = require("../models/friendRequest");
-const mongoose = require("mongoose");
-const community = require("../models/community");
 
 
 
@@ -405,15 +402,48 @@ const getMembers = async (req, res) => {
         // Obtener el ID del usuario autenticado desde el token
         const userId = req.user.id;
 
-        // Get community id
+        // Get community id and page
         const communityId = req.params.id
+        const page = Number(req.query.pagination) + 1 || 1;
+        const itemsPerPage = Number(req.query.itemsPerPage) || 6;
+        console.log('getMembers', page, itemsPerPage)
+
+        if (!communityId) {
+            return res.status(400).json({
+                status: 'error',
+                message: 'Missing fields: communityId'
+            })
+        }
 
         // Get members
         const community = await Community.findById(communityId).select("members").populate("members.user", "nickname image")
 
+        if (community.members.filter(m => m.user.equals(userId)).length === 0) {
+            return res.status(401).json({
+                status: 'error',
+                message: 'The user is not part of this community, so getMembers action is forbidden'
+            })
+        }
+
+        let membersFormatted = community.members.map(m => {
+            return({
+                id: m.user._id,
+                nickname: m.user.nickname,
+                image: m.user.image,
+                points: m.points,
+                joined_at: m.joined_at
+            })
+        })
+
+        let paginatedMembers = membersFormatted;
+        if (page && itemsPerPage) {
+            paginatedMembers = membersFormatted.slice((page - 1) * itemsPerPage, page * itemsPerPage)
+        }
+
         return res.status(200).json({
             status: "success",
-            members: community.members
+            members: paginatedMembers,
+            total: membersFormatted.length
         });
     } catch (error) {
         console.error("Error obtaining community members:", error);
