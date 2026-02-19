@@ -3,19 +3,22 @@ const router = express.Router();
 const LetterController = require("../controllers/letter");
 const auth = require("../middlewares/auth");
 
-
 // Definir rutas
 console.log(LetterController);
 router.post("/new", auth.authentificate, LetterController.saveLetter); // Guardar una carta
-router.get("/view/:letterId", auth.authentificate, LetterController.viewLetter); // Obtener info y contenido 
+router.get("/view/:letterId", auth.authentificate, LetterController.viewLetter); // Obtener info y contenido
 router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Editar una carta
 router.put("/edit-diary", auth.authentificate, LetterController.editLetter); // Editar el diario de una carta
 router.delete("/delete/", auth.authentificate, LetterController.deleteLetters); // Eliminar una carta
 router.get("/list", auth.authentificate, LetterController.listLetters); // Listar todas las cartas del usuario
+router.get(
+  "/list/search",
+  auth.authentificate,
+  LetterController.searchLettersByTitle,
+); // Buscar cartas por titulo
 router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Compartir una carta
 router.get("/diaries", auth.authentificate, LetterController.getUserDiaries); // Listar diarios del usuario
-router.get("/count/:id?", auth.authentificate, LetterController.countLetters) // Contar cartas del usuario logeado o del id por idioma
-
+router.get("/count/:id?", auth.authentificate, LetterController.countLetters); // Contar cartas del usuario logeado o del id por idioma
 
 // Exportar router
 module.exports = router;

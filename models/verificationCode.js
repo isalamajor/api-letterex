@@ -1,23 +1,22 @@
 const { Schema, model } = require("mongoose");
-const { User } = require("./user");
 
-const FriendRequestSchema = Schema(
+const VerificationCodeSchema = Schema(
   {
-    sender: {
-      // Usuario que envía la solicitud
-      type: Schema.Types.ObjectId,
-      ref: "User",
+    email: {
+      type: String,
       required: true,
     },
-    receiver: {
-      // Usuario que recibe la solicitud
-      type: Schema.Types.ObjectId,
-      ref: "User",
+    code: {
+      type: Number,
       required: true,
     },
-    created_at: {
+    expiresAt: {
       type: Date,
-      default: Date.now,
+      required: true,
+    },
+    verified: {
+      type: Boolean,
+      default: false,
     },
   },
   {
@@ -40,4 +39,10 @@ const FriendRequestSchema = Schema(
   },
 );
 
-module.exports = model("FriendRequest", FriendRequestSchema, "FriendRequests");
+const VerificationCode = model(
+  "VerificationCode",
+  VerificationCodeSchema,
+  "verification_codes",
+);
+
+module.exports = { VerificationCode };

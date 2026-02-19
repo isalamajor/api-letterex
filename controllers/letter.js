@@ -3,422 +3,500 @@ const correctedLetter = require("../models/correctedLetter");
 const { User } = require("../models/user");
 const CorrectedLetter = require("../models/correctedLetter");
 
-
 const saveLetter = async (req, res) => {
-    try {
-        // Guardar contenido del body
-        const { title, content, diary, language, created_at } = req.body; // created_at formato "2025-01-30"
-        // Guardar contenido del body
-        const now = new Date();
-        const created_at_conv = new Date(
-            created_at.year,
-            created_at.month - 1,
-            created_at.day,
-            now.getHours(),
-            now.getMinutes(),
-            now.getSeconds(),
-            now.getMilliseconds()
-          );
-        
-        const userId = req.user.id; 
+  try {
+    // Guardar contenido del body
+    const { title, content, diary, language, created_at } = req.body; // created_at formato "2025-01-30"
+    // Guardar contenido del body
+    const now = new Date();
+    const created_at_conv = new Date(
+      created_at.year,
+      created_at.month - 1,
+      created_at.day,
+      now.getHours(),
+      now.getMinutes(),
+      now.getSeconds(),
+      now.getMilliseconds(),
+    );
 
-        if (!title || !content || !language || !created_at_conv) { // created at formato "2025-01-30"
-            return res.status(400).json({
-                status: "error",
-                message: "Title, content, date and language are required." 
-            });
-        }
+    const userId = req.user.id;
 
-        const newLetter = new Letter({
-            author: userId,
-            title,
-            content,
-            diary: diary || null,
-            language,
-            created_at: created_at_conv || Date.now
-        });
-
-        const savedLetter = await newLetter.save();
-        return res.status(200).json({ 
-            status: "success",
-            message: "Letter saved successfully.",
-            letter: savedLetter 
-        });
-    } catch (error) {
-        console.error("Error saving letter:", error);
-        return res.status(500).json({
-            status: "error",
-            message: "Error saving letter",
-            error: error.message
-        });
+    if (!title || !content || !language || !created_at_conv) {
+      // created at formato "2025-01-30"
+      return res.status(400).json({
+        status: "error",
+        message: "Title, content, date and language are required.",
+      });
     }
-};
 
+    const newLetter = new Letter({
+      author: userId,
+      title,
+      content,
+      diary: diary || null,
+      language,
+      created_at: created_at_conv || Date.now,
+    });
+
+    const savedLetter = await newLetter.save();
+    return res.status(200).json({
+      status: "success",
+      message: "Letter saved successfully.",
+      letter: savedLetter,
+    });
+  } catch (error) {
+    console.error("Error saving letter:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error saving letter",
+      error: error.message,
+    });
+  }
+};
 
 const viewLetter = async (req, res) => {
-    try {
-        const { letterId } = req.params;
-        const userId = req.user.id;
+  try {
+    const { letterId } = req.params;
+    const userId = req.user.id;
 
-        // Buscar la carta por su ID
-        const letter = await Letter.findById(letterId);
-        if (!letter) {
-            return res.status(404).json({ message: "Letter not found." });
-        }
-
-        // Verificar que el usuario sea el autor o que la carta haya sido compartida con él
-        if (letter.author.toString() !== userId && !letter.sharedWith.includes(userId)) {
-            return res.status(403).json({ message: "Unauthorized to view this letter." });
-        }
-
-        // Obtener el nickname y la imagen de los usuarios con los que se compartió la carta
-        const sharedWithDetails = await Promise.all(
-            letter.sharedWith.map(async (friendId) => {
-                const friend = await User.findById(friendId).select("_id nickname image");
-                return friend ? friend.toObject() : null; // Convertir a objeto normal o retornar null si no existe
-            })
-        );
-
-        // Crear el objeto con la información de la carta
-        const letterDetails = {
-            created_at: letter.created_at,
-            title: letter.title,
-            content: letter.content,
-            diary: letter.diary || null,
-            language: letter.language,
-            audio: letter.audio || null,
-            sharedWith: sharedWithDetails.filter(Boolean) || []
-        };
-        
-        return res.status(200).json({
-            message: "Letter retrieved successfully.",
-            letter: letterDetails
-        });
-
-    } catch (error) {
-        return res.status(500).json({
-            message: "Error retrieving letter",
-            error: error.message
-        });
+    // Buscar la carta por su ID
+    const letter = await Letter.findById(letterId);
+    if (!letter) {
+      return res.status(404).json({ message: "Letter not found." });
     }
-};
 
+    // Verificar que el usuario sea el autor o que la carta haya sido compartida con él
+    if (
+      letter.author.toString() !== userId &&
+      !letter.sharedWith.includes(userId)
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to view this letter." });
+    }
+
+    // Obtener el nickname y la imagen de los usuarios con los que se compartió la carta
+    const sharedWithDetails = await Promise.all(
+      letter.sharedWith.map(async (friendId) => {
+        const friend =
+          await User.findById(friendId).select("_id nickname image");
+        return friend ? friend.toObject() : null; // Convertir a objeto normal o retornar null si no existe
+      }),
+    );
+
+    // Crear el objeto con la información de la carta
+    const letterDetails = {
+      created_at: letter.created_at,
+      title: letter.title,
+      content: letter.content,
+      diary: letter.diary || null,
+      language: letter.language,
+      audio: letter.audio || null,
+      sharedWith: sharedWithDetails.filter(Boolean) || [],
+    };
+
+    return res.status(200).json({
+      message: "Letter retrieved successfully.",
+      letter: letterDetails,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error retrieving letter",
+      error: error.message,
+    });
+  }
+};
 
 const editLetter = async (req, res) => {
-    try {
-        const letterId  = req.params.id;
-        const { title, content, diary, language, sharedWith } = req.body;
-        const userId = req.user.id;
-        
-        const letter = await Letter.findById(letterId);
+  try {
+    const letterId = req.params.id;
+    const { title, content, diary, language, sharedWith } = req.body;
+    const userId = req.user.id;
 
-        if (!letter) {
-            return res.status(404).json({ message: "Letter not found." });
-        }
+    const letter = await Letter.findById(letterId);
 
-        if (letter.author.toString() !== userId) {
-            return res.status(403).json({ message: "Unauthorized to edit this letter." });
-        }
-
-        letter.title = title || letter.title;
-        letter.content = content || letter.content;
-        letter.diary = diary !== undefined ? diary : letter.diary;
-        letter.language = language || letter.language;
-        letter.sharedWith = sharedWith || letter.sharedWith;
-        const updatedLetter = await letter.save();
-        return res.status(200).json({ message: "Letter updated successfully.", letter: updatedLetter });
-    } catch (error) {
-        return res.status(500).json({ message: "Error updating letter", error: error.message });
+    if (!letter) {
+      return res.status(404).json({ message: "Letter not found." });
     }
-};
 
+    if (letter.author.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to edit this letter." });
+    }
+
+    letter.title = title || letter.title;
+    letter.content = content || letter.content;
+    letter.diary = diary !== undefined ? diary : letter.diary;
+    letter.language = language || letter.language;
+    letter.sharedWith = sharedWith || letter.sharedWith;
+    const updatedLetter = await letter.save();
+    return res
+      .status(200)
+      .json({ message: "Letter updated successfully.", letter: updatedLetter });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Error updating letter", error: error.message });
+  }
+};
 
 const editDiary = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const letterId = req.body.letterId;
-        const newDiary = req.body.diary;
+  try {
+    const userId = req.user.id;
+    const letterId = req.body.letterId;
+    const newDiary = req.body.diary;
 
-        const letter = Letter.findById(letterId);
+    const letter = Letter.findById(letterId);
 
-        if (!userId || letter.author !== userId) {
-            return res.status(401).json({
-            status: "error",
-            message: "Unauthorized to edit this letter"
-            })
-        }
-
-        if (!newDiary) {
-            return res.status(400).json({
-            status: "error",
-            message: "New diary name is missing"
-            })
-        }
-
-        if (newDiary === "Unclassified" || newDiary.trim() === "") {
-            letterd.iary = undefined
-        } else {
-            letter.diary = newDiary
-        }
-        const letterUpdated = await letter.save()
-        console.log("updated user: ", letterUpdated);
-
-        if (letterUpdated && letterUpdated.diary === newDiary) {
-            return res.status(200).json({
-            status: "success",
-            message: "Updated the letter's diary successfully"
-            })
-        }
-
-        return res.status(400).json({
-            status: "error",
-            message: "Failed to update diary for this letter"
-        })
-
-    } catch (error) {
-        return res.status(400).json({
-            status: "error",
-            message: "Error editing a letter's diary: " + error
-        })
+    if (!userId || letter.author !== userId) {
+      return res.status(401).json({
+        status: "error",
+        message: "Unauthorized to edit this letter",
+      });
     }
-}
 
+    if (!newDiary) {
+      return res.status(400).json({
+        status: "error",
+        message: "New diary name is missing",
+      });
+    }
+
+    if (newDiary === "Unclassified" || newDiary.trim() === "") {
+      letterd.iary = undefined;
+    } else {
+      letter.diary = newDiary;
+    }
+    const letterUpdated = await letter.save();
+    console.log("updated user: ", letterUpdated);
+
+    if (letterUpdated && letterUpdated.diary === newDiary) {
+      return res.status(200).json({
+        status: "success",
+        message: "Updated the letter's diary successfully",
+      });
+    }
+
+    return res.status(400).json({
+      status: "error",
+      message: "Failed to update diary for this letter",
+    });
+  } catch (error) {
+    return res.status(400).json({
+      status: "error",
+      message: "Error editing a letter's diary: " + error,
+    });
+  }
+};
 
 const deleteLetter = async (letterId) => {
-    try {
-        const letter = await Letter.findById(letterId);
-        if (!letter) {
-            return -2;
-        }
-
-        // Si no está compartida, eliminarla físicamente
-        if (letter.sharedWith.length === 0) {
-            await Letter.findByIdAndDelete(letterId);
-            return 0;
-        }
-        
-        letter.deleted = true;
-        res = await letter.save();
-
-        if (!res) {
-            return -1;
-        }
-        return 0;
-    } catch (error) {
-        return -1;
+  try {
+    const letter = await Letter.findById(letterId);
+    if (!letter) {
+      return -2;
     }
-};
 
+    // Si no está compartida, eliminarla físicamente
+    if (letter.sharedWith.length === 0) {
+      await Letter.findByIdAndDelete(letterId);
+      return 0;
+    }
+
+    letter.deleted = true;
+    res = await letter.save();
+
+    if (!res) {
+      return -1;
+    }
+    return 0;
+  } catch (error) {
+    return -1;
+  }
+};
 
 const deleteLetters = async (req, res) => {
-    try {
-        const letterIds = req.body.letters;
-        const userId = req.user.id;
-        let countDeleted = 0;
+  try {
+    const letterIds = req.body.letters;
+    const userId = req.user.id;
+    let countDeleted = 0;
 
-        if (!Array.isArray(letterIds) || letterIds.length === 0) {
-            return res.status(400).json({ message: "No letter IDs provided." });
-        }
-
-        const results = await Promise.all(
-            letterIds.map(letterId => deleteLetter(letterId))
-        );
-        countDeleted = results.filter(result => result === 0).length;
-
-        if (countDeleted === letterIds.length) { return res.status(200).json({ message: "All letters deleted successfully.", countDeleted }); }
-        else if (countDeleted < letterIds.length) { return res.status(201).json({ message: "Some letters deleted successfully, not all.", countDeleted }); }
-        return res.status(500).json({ message: "Error deleting letters." });
+    if (!Array.isArray(letterIds) || letterIds.length === 0) {
+      return res.status(400).json({ message: "No letter IDs provided." });
     }
-    catch (error) {
-        console.error("Error deleting letters:", error);
-        return res.status(500).json({ message: "Error deleting letters", error: error.message });
+
+    const results = await Promise.all(
+      letterIds.map((letterId) => deleteLetter(letterId)),
+    );
+    countDeleted = results.filter((result) => result === 0).length;
+
+    if (countDeleted === letterIds.length) {
+      return res
+        .status(200)
+        .json({ message: "All letters deleted successfully.", countDeleted });
+    } else if (countDeleted < letterIds.length) {
+      return res
+        .status(201)
+        .json({
+          message: "Some letters deleted successfully, not all.",
+          countDeleted,
+        });
     }
+    return res.status(500).json({ message: "Error deleting letters." });
+  } catch (error) {
+    console.error("Error deleting letters:", error);
+    return res
+      .status(500)
+      .json({ message: "Error deleting letters", error: error.message });
+  }
 };
 
+const buildLettersWithCorrections = async (letters) => {
+  return Promise.all(
+    letters.map(async (letter) => {
+      // Obtener detalles de los usuarios con los que se comparte la carta
+      const sharedWithDetails = await Promise.all(
+        letter.sharedWith.map(async (friendId) => {
+          const friend = await User.findById(friendId).select("nickname image");
+          if (!friend) return null; // Si no existe el usuario, retornar null
+
+          // Verificar si hay correcciones enviadas de vuelta por este usuario
+          const correctionSentBack = await CorrectedLetter.findOne({
+            originalLetter: letter._id,
+            reviewer: friendId,
+            sentBack: true,
+          });
+
+          if (!correctionSentBack) {
+            return {
+              ...friend.toObject(),
+              correctionSentBack: false,
+              correctedLetterId: null,
+            };
+          }
+
+          return {
+            ...friend.toObject(),
+            correctionSentBack: !!correctionSentBack,
+            correctedLetterId: correctionSentBack._id,
+          };
+        }),
+      );
+      const letterObj = letter.toObject();
+      letterObj.sharedWith = sharedWithDetails.filter((user) => user !== null);
+      return letterObj;
+    }),
+  );
+};
 
 const listLetters = async (req, res) => {
-    try {
-        const userId = req.user.id;
+  try {
+    const userId = req.user.id;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const itemsPerPage = Math.max(parseInt(req.query.itemsPerPage) || 10, 1);
+    const skip = (page - 1) * itemsPerPage;
 
-        // Obtener solo los campos necesarios, excluyendo contenido y audio
-        const letters = await Letter.find({ author: userId, deleted: false })
-            .select("title diary language created_at sharedWith")
-            .sort({ created_at: -1 }); 
+    const query = { author: userId, deleted: false };
 
-        // Para cada usuario de sharedWith, mirar si existe una CorrectedLetter con sentBack = true. Añadir a usuario el campo correctionSentBack
-        const lettersWithCorrections = await Promise.all(
-            letters.map(async (letter) => {
-                
-                // Obtener detalles de los usuarios con los que se comparte la carta
-                const sharedWithDetails = await Promise.all(
-                    letter.sharedWith.map(async (friendId) => {
-                        const friend = await User.findById(friendId).select("nickname image");
-                        if (!friend) return null; // Si no existe el usuario, retornar null
-                        
-                        // Verificar si hay correcciones enviadas de vuelta por este usuario
-                        const correctionSentBack = await CorrectedLetter.findOne({
-                            originalLetter: letter._id,
-                            reviewer: friendId,
-                            sentBack: true
-                        });
-                        
-                        if (!correctionSentBack) {
-                            return {
-                                ...friend.toObject(),
-                                correctionSentBack: false, // No se ha enviado de vuelta
-                                correctedLetterId: null // No hay carta corregida
-                            };
-                        }
+    // Obtener solo los campos necesarios, excluyendo contenido y audio
+    const letters = await Letter.find(query)
+      .select("title diary language created_at sharedWith")
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(itemsPerPage);
 
-                        return {
-                            ...friend.toObject(),
-                            correctionSentBack: !!correctionSentBack, // Añadir campo correctionSentBack
-                            correctedLetterId: correctionSentBack._id
-                        };
-                    })
-                );
-                const letterObj = letter.toObject();
-                letterObj.sharedWith = sharedWithDetails.filter(user => user !== null); // Filtrar usuarios nulos 
-                return letterObj; // Convertir a objeto normal
-            })
-        );          
-        return res.status(200).json({ letters: lettersWithCorrections });
-    } catch (error) {
-        console.error("Error fetching letters:", error);
-        return res.status(500).json({ message: "Error fetching letters", error: error.message });
-    }
+    const totalLetters = await Letter.countDocuments(query);
+    const lettersWithCorrections = await buildLettersWithCorrections(letters);
+
+    return res.status(200).json({
+      letters: lettersWithCorrections,
+      page,
+      itemsPerPage,
+      totalLetters,
+      totalPages: Math.ceil(totalLetters / itemsPerPage),
+    });
+  } catch (error) {
+    console.error("Error fetching letters:", error);
+    return res
+      .status(500)
+      .json({ message: "Error fetching letters", error: error.message });
+  }
 };
 
+const searchLettersByTitle = async (req, res) => {
+  try {
+    const userId = req.user && req.user.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: "error",
+        message: "Unauthorized",
+      });
+    }
+    const searchTerm = typeof req.query.q === "string" ? req.query.q : "";
+
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const itemsPerPage = Math.max(parseInt(req.query.itemsPerPage) || 10, 1);
+    const skip = (page - 1) * itemsPerPage;
+    const searchRegex = new RegExp(
+      searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+      "i",
+    );
+    const query = { author: userId, deleted: false, title: searchRegex };
+
+    const letters = await Letter.find(query)
+      .select("title diary language created_at sharedWith")
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(itemsPerPage);
+
+    const totalLetters = await Letter.countDocuments(query);
+    const lettersWithCorrections = await buildLettersWithCorrections(letters);
+
+    return res.status(200).json({
+      letters: lettersWithCorrections,
+      page,
+      itemsPerPage,
+      totalLetters,
+      totalPages: Math.ceil(totalLetters / itemsPerPage),
+    });
+  } catch (error) {
+    console.error("Error fetching letters by title:", error);
+    return res
+      .status(500)
+      .json({ message: "Error fetching letters", error: error.message });
+  }
+};
 
 const shareLetter = async (req, res) => {
-    try {
-        const letterId = req.params.id;
-        const { sharedWith } = req.body;
-        const userId = req.user.id;
+  try {
+    const letterId = req.params.id;
+    const { sharedWith } = req.body;
+    const userId = req.user.id;
 
-        // Buscar la carta original
-        const letter = await Letter.findById(letterId);
-        if (!letter) {
-            return res.status(404).json({ message: "Letter not found." });
-        }
-
-        // Verificar que el usuario es el autor de la carta
-        if (letter.author.toString() !== userId) {
-            return res.status(403).json({ message: "Unauthorized to share this letter." });
-        }
-
-        // Actualizar la carta para agregar los usuarios con los que se comparte
-        letter.sharedWith = [...new Set([...letter.sharedWith, ...sharedWith])];
-        await letter.save();
-
-        // Crear un nuevo objeto CorrectedLetter para cada usuario en sharedWith
-        const correctedLetters = await Promise.all( 
-            sharedWith.map(async (friendId) => {
-
-                const newCorrectedLetter = new CorrectedLetter({
-                    originalLetter: letterId,
-                    sender: letter.author,
-                    reviewer: friendId,
-                    corrections: [],
-                    sentBack: false,
-                    received_at: Date.now()
-                });
-
-                // Guardar el nuevo CorrectedLetter
-                return await newCorrectedLetter.save();
-            })
-        );
-
-        return res.status(200).json({
-            message: "Letter shared successfully.",
-            letter,
-            correctedLetters
-        });
-    } catch (error) {
-        return res.status(500).json({
-            message: "Error sharing letter",
-            error: error.message
-        });
+    // Buscar la carta original
+    const letter = await Letter.findById(letterId);
+    if (!letter) {
+      return res.status(404).json({ message: "Letter not found." });
     }
+
+    // Verificar que el usuario es el autor de la carta
+    if (letter.author.toString() !== userId) {
+      return res
+        .status(403)
+        .json({ message: "Unauthorized to share this letter." });
+    }
+
+    // Actualizar la carta para agregar los usuarios con los que se comparte
+    letter.sharedWith = [...new Set([...letter.sharedWith, ...sharedWith])];
+    await letter.save();
+
+    // Crear un nuevo objeto CorrectedLetter para cada usuario en sharedWith
+    const correctedLetters = await Promise.all(
+      sharedWith.map(async (friendId) => {
+        const newCorrectedLetter = new CorrectedLetter({
+          originalLetter: letterId,
+          sender: letter.author,
+          reviewer: friendId,
+          corrections: [],
+          sentBack: false,
+          received_at: Date.now(),
+        });
+
+        // Guardar el nuevo CorrectedLetter
+        return await newCorrectedLetter.save();
+      }),
+    );
+
+    return res.status(200).json({
+      message: "Letter shared successfully.",
+      letter,
+      correctedLetters,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error sharing letter",
+      error: error.message,
+    });
+  }
 };
 
-
 const getUserDiaries = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        
-        // Buscar todas las cartas del usuario
-        const letters = await Letter.find({ author: userId }).select("diary");
-        
-        // Filtrar y devolver los diarios únicos
-        const diaries = [...new Set(letters.map(letter => letter.diary).filter(diary => diary))];
-        return res.status(200).json({
-            message: "success",
-            diaries: diaries
-        });
-    } catch (error) {
-        return res.status(500).json({
-            message: "Error getting diaries",
-            error: error.message
-        });
-    }
-}
+  try {
+    const userId = req.user.id;
 
+    // Buscar todas las cartas del usuario
+    const letters = await Letter.find({ author: userId }).select("diary");
+
+    // Filtrar y devolver los diarios únicos
+    const diaries = [
+      ...new Set(
+        letters.map((letter) => letter.diary).filter((diary) => diary),
+      ),
+    ];
+    return res.status(200).json({
+      message: "success",
+      diaries: diaries,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error getting diaries",
+      error: error.message,
+    });
+  }
+};
 
 const countLetters = async (req, res) => {
-    try {
-      let userId = req.params.id;
-  
-      // Si no hay ID en params, usar el autenticado
-      if (!userId && req.user && req.user.id) {
-        userId = req.user.id;
-      }
-  
-      if (!userId) {
-        return res.status(400).json({
-          status: "error",
-          message: "User ID not provided",
-          counts: {}
-        });
-      }
-  
-      // Agrupar por idioma y contar
-      const countsByLanguage = await Letter.aggregate([
-        { $match: { author: userId } },
-        { $group: { _id: "$language", count: { $sum: 1 } } }
-      ]);
-  
-      // Transformar el resultado a objeto { idioma: count }
-      const result = countsByLanguage.reduce((acc, item) => {
-        acc[item._id] = item.count;
-        return acc;
-      }, {});
-  
-      res.status(200).json({
-        status: "success",
-        counts: result,
-      });
-  
-    } catch (error) {
-      console.error("Error counting letters:", error);
-      res.status(500).json({
+  try {
+    let userId = req.params.id;
+
+    // Si no hay ID en params, usar el autenticado
+    if (!userId && req.user && req.user.id) {
+      userId = req.user.id;
+    }
+
+    if (!userId) {
+      return res.status(400).json({
         status: "error",
-        message: "Error counting letters",
-        counts: {}
+        message: "User ID not provided",
+        counts: {},
       });
     }
-  };
 
+    // Agrupar por idioma y contar
+    const countsByLanguage = await Letter.aggregate([
+      { $match: { author: userId } },
+      { $group: { _id: "$language", count: { $sum: 1 } } },
+    ]);
 
+    // Transformar el resultado a objeto { idioma: count }
+    const result = countsByLanguage.reduce((acc, item) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {});
 
-module.exports = { 
-    saveLetter,
-    viewLetter, 
-    editLetter,
-    editDiary,
-    deleteLetters, 
-    listLetters, 
-    shareLetter,
-    getUserDiaries,
-    countLetters
+    res.status(200).json({
+      status: "success",
+      counts: result,
+    });
+  } catch (error) {
+    console.error("Error counting letters:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Error counting letters",
+      counts: {},
+    });
+  }
+};
+
+module.exports = {
+  saveLetter,
+  viewLetter,
+  editLetter,
+  editDiary,
+  deleteLetters,
+  listLetters,
+  searchLettersByTitle,
+  shareLetter,
+  getUserDiaries,
+  countLetters,
 };

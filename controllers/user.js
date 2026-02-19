@@ -1,8 +1,8 @@
 const nodemailer = require("nodemailer");
-const { User, VerificationCode } = require("../models/user");
+const { User } = require("../models/user");
+const { VerificationCode } = require("../models/verificationCode");
 const bcrypt = require("bcrypt");
 const jwt = require("../services/jwt");
-const mongoosePaginate = require("mongoose-pagination");
 const path = require("path");
 const fs = require("fs");
 
@@ -278,7 +278,7 @@ const profile = async (req, res) => {
 
   // Eliminar constraseña y rol del objeto a devolver
   const userResponse = user.toObject(); // Convierte el documento de Mongoose a un objeto plano
-  userResponse.profilePictureUrl = `/api/users/profile-picture/${userResponse._id}`;
+  userResponse.profilePictureUrl = `/api/users/profile-picture/${userResponse.id}`;
   delete userResponse.password;
   delete userResponse.role;
 
@@ -482,7 +482,7 @@ const uploadProfilePicture = async (req, res) => {
     return res.status(200).json({
       status: "success",
       message: "Foto de perfil actualizada con éxito",
-      userId: user._id,
+      userId: user.id,
       profilePicture: updatedUser.image,
     });
   } catch (error) {

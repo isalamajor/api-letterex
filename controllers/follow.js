@@ -135,13 +135,16 @@ const listFriendRequests = async (req, res) => {
       .sort({ created_at: -1 })
       .populate("sender", "_id nickname image");
 
-    const requestDetails = requests.map((request) => ({
-      ...request.toObject(),
-      sender: {
-        ...request.sender.toObject(),
-        profilePictureUrl: `/api/users/profile-picture/${request.sender._id}`,
-      },
-    }));
+    const requestDetails = requests.map((request) => {
+      const reqObj = request.toObject();
+      return {
+        ...reqObj,
+        sender: {
+          ...reqObj.sender,
+          profilePictureUrl: `/api/users/profile-picture/${reqObj.sender.id}`,
+        },
+      };
+    });
 
     return res.status(200).json({
       status: "success",
@@ -347,7 +350,7 @@ const getFriends = async (req, res) => {
           await User.findById(friendId).select("nickname image _id");
         if (friend) {
           const obj = friend.toObject();
-          obj.profilePictureUrl = `/api/users/profile-picture/${obj._id}`;
+          obj.profilePictureUrl = `/api/users/profile-picture/${obj.id}`;
           return obj;
         }
         return null;
@@ -370,7 +373,7 @@ const getFriends = async (req, res) => {
     // Añadirlo a friendDetails
     lettersExchanged.forEach(({ friendId, count }) => {
       const friend = friendDetails.find(
-        (f) => f._id.toString() === friendId.toString(),
+        (f) => f.id.toString() === friendId.toString(),
       );
       if (friend) {
         friend.lettersExchanged = count;
@@ -472,9 +475,10 @@ const getNonFriendsByFilter = async (req, res) => {
           receiver: user._id,
         });
 
+        const userObj = user.toObject();
         return {
-          ...user.toObject(),
-          profilePictureUrl: `/api/users/profile-picture/${user._id}`,
+          ...userObj,
+          profilePictureUrl: `/api/users/profile-picture/${userObj.id}`,
           friendRequestSent: !!existingRequest, // true si existe, false si no
         };
       }),
@@ -550,10 +554,15 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
       receiver: userId,
     });
 
+    // Guardar sentRequests como ObjectIds para marcar después
+    const sentRequestsSet = new Set(
+      sentRequests.map((id) => new mongoose.Types.ObjectId(id).toString()),
+    );
+
     let excludedIds = [
       userObjectId,
       ...new Set(
-        [...following, ...followers, ...sentRequests, ...receivedRequests].map(
+        [...following, ...followers, ...receivedRequests].map(
           (id) => new mongoose.Types.ObjectId(id),
         ),
       ),
@@ -580,7 +589,7 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
       { $sample: { size: limit } },
       {
         $project: {
-          _id: 1,
+          id: "$_id",
           nickname: 1,
           image: 1,
           learningLanguage: 1,
@@ -596,14 +605,14 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
       },
     ]);
 
-    excludedIds.push(...usersToLearn.map((user) => user._id));
+    excludedIds.push(...usersToLearn.map((user) => user.id));
 
     const usersToTeach = await User.aggregate([
       { $match: { ...conditions[1], _id: { $nin: excludedIds } } },
       { $sample: { size: limit - usersToLearn.length } },
       {
         $project: {
-          _id: 1,
+          id: "$_id",
           nickname: 1,
           image: 1,
           learningLanguage: 1,
@@ -620,7 +629,7 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
     ]);
 
     suggestedUsers = [...new Set([...usersToLearn, ...usersToTeach])];
-    excludedIds.push(...usersToTeach.map((user) => user._id));
+    excludedIds.push(...usersToTeach.map((user) => user.id));
 
     // Rellenar el resto con usuarios random
     const remaining = limit - suggestedUsers.length;
@@ -630,7 +639,7 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
         { $sample: { size: remaining } },
         {
           $project: {
-            _id: 1,
+            id: "$_id",
             nickname: 1,
             image: 1,
             learningLanguage: 1,
@@ -648,7 +657,11 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
       suggestedUsers.push(...randomUsers);
     }
 
-    return suggestedUsers;
+    // Agregar campo friendRequestSent a cada usuario
+    return suggestedUsers.map((user) => ({
+      ...user,
+      friendRequestSent: sentRequestsSet.has(user.id.toString()),
+    }));
   } catch (error) {
     console.log("Error when obtaining suggested users by priority: ", error);
     return -1;
