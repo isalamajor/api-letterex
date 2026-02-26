@@ -7,7 +7,13 @@ const VerificationCodeSchema = Schema(
       required: true,
     },
     code: {
-      type: Number,
+      type: String,
+      required: true,
+    },
+    purpose: {
+      type: String,
+      enum: ["register", "password_reset"],
+      default: "register",
       required: true,
     },
     expiresAt: {
@@ -38,6 +44,9 @@ const VerificationCodeSchema = Schema(
     },
   },
 );
+
+// Eliminar documentos automaticamente cuando expiresAt se cumple
+VerificationCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const VerificationCode = model(
   "VerificationCode",

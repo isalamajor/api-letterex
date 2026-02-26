@@ -7,14 +7,23 @@ const path = require("path");
 const fs = require("fs");
 
 const sendVerificationCode = async (req, res) => {
-  const { email } = req.params;
+  const { email } = req.body;
+  const purpose =
+    typeof req.body.purpose === "string" ? req.body.purpose : "register";
+  const allowedPurposes = new Set(["register", "password_reset"]);
+  if (!allowedPurposes.has(purpose)) {
+    return res.status(400).json({
+      code: -1,
+      message: "Invalid purpose",
+    });
+  }
 
   // Validar el email
   if (!email) return res.status(400).json({ message: "Email requerido" });
 
   // Genera un código aleatorio de 6 dígitos
   const code = Math.floor(100000 + Math.random() * 900000);
-  console.log(code);
+  const hashedCode = await bcrypt.hash(code.toString(), 10);
 
   // Calcula la fecha de expiración (7 minutos desde ahora)
   const expiresAt = new Date(Date.now() + 7 * 60 * 1000);
@@ -23,12 +32,11 @@ const sendVerificationCode = async (req, res) => {
     // Buscar y actualizar el código de verificación existente o crear uno nuevo
     const verificationCode = await VerificationCode.findOneAndUpdate(
       { email }, // Filtro: buscar por email
-      { code, expiresAt, verified: false }, // Actualizar estos campos
+      { code: hashedCode, expiresAt, verified: false, purpose }, // Actualizar estos campos
       { new: true, upsert: true }, // Crear uno nuevo si no existe
     );
   } catch (error) {
     return res.status(500).json({
-      code: -1,
       message: "Error al guardar el código de verificación",
       error: error.message,
     });
@@ -54,83 +62,170 @@ const sendVerificationCode = async (req, res) => {
       .replace("${code}", code)
       .replace("${new Date().getFullYear()}", new Date().getFullYear());
 
+    const subjectByPurpose = {
+      register: "Verification Code - Register",
+      password_reset: "Verification Code - Password Reset",
+    };
     const resTrans = await transporter.sendMail({
       from: `"Letterex 🐸" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Verification Code - Register",
+      subject: subjectByPurpose[purpose] || "Verification Code",
       html: html,
     });
-    return res.status(200).json({
-      code: 0,
+
+    if (resTrans.rejected && resTrans.rejected.length > 0) {
+      return res.status(500).json({
+        message: "Email inválido",
+        error: error.message,
+      });
+    }
+    return res.status(201).json({
       message: "Código enviado",
     });
   } catch (error) {
     return res.status(500).json({
-      code: -1,
       message: "Error enviando el email de verificación",
       error: error.message,
     });
   }
 };
 
-const verifyCode = async (req, res) => {
-  const { email, code } = req.body;
-  // Validar que se envíen los parámetros necesarios
+// Función privada para validar códigos de verificación
+const _validateVerificationCode = async (
+  email,
+  code,
+  purpose,
+  markAsUsed = true,
+  allowAlreadyUsed = false,
+) => {
+  const allowedPurposes = new Set(["register", "password_reset"]);
+
   if (!email || !code) {
-    return res.status(400).json({
-      status: "error",
-      code: -1,
-      message: "Some fields are missing",
-    });
+    return { error: "Email and code are required" };
+  }
+
+  if (!allowedPurposes.has(purpose)) {
+    return { error: "Invalid purpose" };
   }
 
   try {
-    // Buscar el código de verificación en la base de datos
-    const verificationCode = await VerificationCode.findOne({ email, code });
+    const verificationCode = await VerificationCode.findOne({ email, purpose });
 
-    // Verificar si existe
     if (!verificationCode) {
+      return { error: "Invalid verification code" };
+    }
+
+    const isMatch = await bcrypt.compare(
+      code.toString(),
+      verificationCode.code,
+    );
+    if (!isMatch) {
+      return { error: "Invalid verification code" };
+    }
+
+    if (verificationCode.verified && !allowAlreadyUsed) {
+      return { error: "Verification code already used" };
+    }
+
+    if (new Date() > verificationCode.expiresAt) {
+      return { error: "Verification code has expired" };
+    }
+
+    if (markAsUsed) {
+      verificationCode.verified = true;
+      await verificationCode.save();
+    }
+
+    return { success: true, verificationCode };
+  } catch (error) {
+    return { error: `Error verifying code: ${error.message}` };
+  }
+};
+
+const verifyCode = async (req, res) => {
+  const { email, code } = req.body;
+  const purpose =
+    typeof req.body.purpose === "string" ? req.body.purpose : "register";
+
+  const result = await _validateVerificationCode(
+    email,
+    code,
+    purpose,
+    true,
+    false,
+  );
+
+  if (result.error) {
+    return res.status(result.error.includes("already used") ? 400 : 404).json({
+      status: "error",
+      message: result.error,
+    });
+  }
+
+  return res.status(200).json({
+    status: "success",
+    message: "Verification code verified successfully",
+  });
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({
+        status: "error",
+        message: "Email, code and new password are required",
+      });
+    }
+
+    // Validar el código de reset
+    const result = await _validateVerificationCode(
+      email,
+      code,
+      "password_reset",
+      false,
+      true,
+    );
+
+    if (result.error) {
+      return res
+        .status(result.error.includes("already used") ? 400 : 404)
+        .json({
+          status: "error",
+          message: result.error,
+        });
+    }
+
+    // Buscar al usuario en la base de datos
+    const user = await User.findOne({ email });
+    if (!user) {
       return res.status(404).json({
         status: "error",
-        code: -2,
-        message: "Wrong verification code",
+        message: "User not found",
       });
     }
 
-    // Verificar si el código ya fue utilizado
-    if (verificationCode.verified) {
-      return res.status(400).json({
-        status: "error",
-        code: -3,
-        message: "Verification code already used",
-      });
-    }
+    // Cifrar la nueva contraseña
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Verificar si el código ha expirado
-    if (new Date() > verificationCode.expiresAt) {
-      return res.status(400).json({
-        status: "error",
-        code: -4,
-        message: "Verification code has expired",
-      });
-    }
+    // Actualizar la contraseña en la base de datos
+    user.password = hashedNewPassword;
+    await user.save();
 
     // Marcar el código como utilizado
-    verificationCode.verified = true;
-    await verificationCode.save();
+    result.verificationCode.verified = true;
+    await result.verificationCode.save();
 
     return res.status(200).json({
       status: "success",
-      code: 0,
-      message: "Verification code verified successfully",
+      message: "Password reset successfully",
     });
   } catch (error) {
-    console.error("Error al verificar el código:", error);
+    console.error("Error resetting password:", error);
     return res.status(500).json({
       status: "error",
-      code: -1,
-      message: "Error verifying code",
-      error: error.message,
+      message: `Error resetting password: ${error.message}`,
     });
   }
 };
@@ -243,12 +338,20 @@ const login = async (req, res) => {
   delete userData.role;
 
   // Éxito
-  return res.status(200).json({
-    status: 0,
-    message: "Login exitoso",
-    userData,
-    token,
-  });
+  return res
+    .cookie("authToken", token, {
+      httpOnly: true, // No accesible desde JavaScript
+      secure: process.env.NODE_ENV === "production", // HTTPS en producción
+      sameSite: "strict", // Protege contra CSRF
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 días
+    })
+    .status(200)
+    .json({
+      status: 0,
+      message: "Login exitoso",
+      userData,
+      token, // Opcional: lo puedes quitar ya que va en la cookie
+    });
 };
 
 const profile = async (req, res) => {
@@ -650,7 +753,6 @@ const deleteAccount = async (req, res) => {
       .json({ status: -1, message: "Usuario no encontrado" });
   }
 
-  // Si no tienes user.comparePassword, usa bcrypt:
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
     return res
@@ -673,6 +775,24 @@ const deleteAccount = async (req, res) => {
   });
 };
 
+const logout = async (req, res) => {
+  try {
+    res.clearCookie("authToken");
+
+    return res.status(200).json({
+      status: "success",
+      message: "Logout exitoso",
+    });
+  } catch (error) {
+    console.error("Error en logout:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error en logout",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -688,5 +808,7 @@ module.exports = {
   checkEmail,
   sendVerificationCode,
   verifyCode,
+  resetPassword,
+  logout,
   deleteAccount,
 };

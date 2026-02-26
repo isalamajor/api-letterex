@@ -261,15 +261,6 @@ const searchReceivedLetters = async (req, res) => {
 
     // Marcar como vistas
     await CorrectedLetter.updateMany({ reviewer: userId }, { seen: true });
-    console.log("received:", {
-      status: "success",
-      letters: paginatedLetters,
-      senders: uniqueSenders,
-      page,
-      itemsPerPage,
-      totalLetters,
-      totalPages: Math.ceil(totalFiltered / itemsPerPage),
-    });
     return res.status(200).json({
       status: "success",
       letters: paginatedLetters,
