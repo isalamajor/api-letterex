@@ -14,11 +14,11 @@ const CorrectionSchema = new Schema({
   startIndex: {
     type: Number,
     required: true,
-  }, // Posición de inicio del error
+  }, // Start position of the error
   endIndex: {
     type: Number,
     required: true,
-  }, // Longitud del texto incorrecto
+  }, // Length of incorrect text
 });
 
 const CorrectedletterSchema = new Schema(
@@ -37,11 +37,11 @@ const CorrectedletterSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-    }, // Usuario que la envió
+    }, // User who sent it
     sentBack: {
       type: Boolean,
       default: false,
-    }, // Corrector la envió de vuelta (ya no se puede modificar)
+    }, // Corrector sent it back (can no longer be modified)
     seen: {
       type: Boolean,
       default: false,

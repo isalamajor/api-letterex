@@ -162,7 +162,7 @@ const listFriendRequests = async (req, res) => {
 const acceptFriendRequest = async (req, res) => {
   try {
     const userId = req.user.id; // Usuario autenticado (receptor de la solicitud)
-    const senderId = req.params.id; // ID del usuario que envió la solicitud
+    const senderId = req.params.id; // ID of user who sent the request
     console.log("Aceptar solicitud de amistad de:", senderId, userId);
     // Verificar si la solicitud existe
     const request = await FriendRequest.findOne({
@@ -177,7 +177,7 @@ const acceptFriendRequest = async (req, res) => {
       });
     }
 
-    // Crear una relación de Follow
+    // Create a Follow relationship
     const newFollow = new Follow({
       user1: userId,
       user2: senderId,
@@ -203,10 +203,10 @@ const acceptFriendRequest = async (req, res) => {
 
 const rejectFriendRequest = async (req, res) => {
   try {
-    const userId = req.user.id; // Usuario autenticado (receptor de la solicitud)
-    const senderId = req.params.id; // ID del usuario que envió la solicitud
+    const userId = req.user.id; // Authenticated user (request receiver)
+    const senderId = req.params.id; // ID of user who sent the request
 
-    // Verificar si la solicitud existe
+    // Verify if the request exists
     const request = await FriendRequest.findOne({
       sender: senderId,
       receiver: userId,
@@ -240,7 +240,7 @@ const saveFollow = async (req, res) => {
     // Obtener el ID del usuario autenticado desde el token
     const userId = req.user.id;
 
-    // Recoger parámetros de la petición
+    // Get request parameters
     const userToFollow = req.params.id;
     console.log(userToFollow);
 
@@ -307,7 +307,7 @@ const deleteFollow = async (req, res) => {
       });
     }
 
-    // Confirmar la eliminación del follow
+    // Confirm follow removal
     return res.status(200).json({
       status: "success",
       message: "Has dejado de seguir al usuario correctamente",
@@ -333,7 +333,7 @@ const getFriends = async (req, res) => {
     });
 
     // Extraer IDs de amigos
-    const friendIds = new Set(); // Evitar duplicados
+    friendIds = new Set(); // Avoid duplicates
 
     friends.forEach((follow) => {
       if (follow.user1 === userId) {
@@ -343,7 +343,7 @@ const getFriends = async (req, res) => {
       }
     });
 
-    // Para cada amigo, obtener su información básica
+    // For each friend, get their basic information
     const friendDetails = await Promise.all(
       Array.from(friendIds).map(async (friendId) => {
         const friend =
@@ -357,7 +357,7 @@ const getFriends = async (req, res) => {
       }),
     );
 
-    // Para cada amigo, obtener cuántas cartas se han intercambiado
+    // For each friend, get how many letters have been exchanged
     const lettersExchanged = await Promise.all(
       Array.from(friendIds).map(async (friendId) => {
         const count = await CorrectedLetter.countDocuments({
@@ -370,7 +370,7 @@ const getFriends = async (req, res) => {
       }),
     );
 
-    // Añadirlo a friendDetails
+    // Add to friendDetails
     lettersExchanged.forEach(({ friendId, count }) => {
       const friend = friendDetails.find(
         (f) => f.id.toString() === friendId.toString(),
@@ -554,7 +554,7 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
       receiver: userId,
     });
 
-    // Guardar sentRequests como ObjectIds para marcar después
+    // Save sentRequests as ObjectIds to mark later
     const sentRequestsSet = new Set(
       sentRequests.map((id) => new mongoose.Types.ObjectId(id).toString()),
     );

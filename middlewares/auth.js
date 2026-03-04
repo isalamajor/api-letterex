@@ -5,7 +5,7 @@ const moment = require("moment");
 const libjwt = require("../services/jwt");
 const secret = libjwt.secret;
 
-// Middleware de Autentificación
+// Authentication middleware
 exports.authentificate = (req, res, next) => {
   // Recibir token de la cookie
   const token = req.cookies.authToken;
@@ -21,7 +21,7 @@ exports.authentificate = (req, res, next) => {
   try {
     let payload = jwt.decode(token, secret);
 
-    // Comprobar expiración del token
+    // Check token expiration
     if (payload.exp <= moment().unix()) {
       return res.status(401).send({
         status: "error",

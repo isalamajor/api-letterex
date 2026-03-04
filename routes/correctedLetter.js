@@ -18,7 +18,7 @@ router.get(
   "/correctedLetter/:correctedLetterId",
   auth.authentificate,
   CorrectedLetterController.getLetterCorrectionById,
-); // Obtener mi corrección en proceso o terminada
+); // Get my correction in progress or finished
 router.get(
   "/received/",
   auth.authentificate,
@@ -43,7 +43,7 @@ router.delete(
   "/:correctedLetterId",
   auth.authentificate,
   CorrectedLetterController.deleteCorrectedLetter,
-); // Eliminar carta corregida y carta original (solo si el autor la eliminó antes)
+); // Delete corrected letter and original letter (only if author deleted it before)
 
 // Exportar router
 module.exports = router;

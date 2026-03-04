@@ -9,7 +9,7 @@ router.post("/register", UserController.register);
 router.post("/login", UserController.login);
 router.post("/logout", UserController.logout);
 router.get("/profile/:id?", auth.authentificate, UserController.profile);
-router.get("/list-users/:page?", auth.authentificate, UserController.listUsers); // page? -> page es un parámetro opcional
+router.get("/list-users/:page?", auth.authentificate, UserController.listUsers); // page? -> page is an optional parameter
 router.put("/update", auth.authentificate, UserController.update);
 router.put(
   "/change-password",

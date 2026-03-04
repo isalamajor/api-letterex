@@ -71,7 +71,7 @@ const updateCorrections = async (req, res) => {
       correctedLetter.comments = comments;
     }
 
-    // Actualizar la fecha de corrección
+    // Update correction date
     correctedLetter.corrected_at = Date.now();
 
     // Guardar la carta corregida con las nuevas correcciones
@@ -164,7 +164,7 @@ const getReceivedLetters = async (req, res) => {
       (cl) => cl.originalLetter !== null,
     );
 
-    // Obtener lista de senders únicos
+    // Get list of unique senders
     const uniqueSenders = [
       ...new Map(
         correctedLetters
@@ -173,7 +173,7 @@ const getReceivedLetters = async (req, res) => {
       ).values(),
     ];
 
-    // Marcar las cartas como vistas (después de haberlas obtenido)
+    // Mark letters as seen (after fetching them)
     await CorrectedLetter.updateMany({ reviewer: userId }, { seen: true });
 
     return res.status(200).json({
@@ -217,7 +217,7 @@ const searchReceivedLetters = async (req, res) => {
 
     const validLetters = allCorrectedLetters.filter((cl) => cl.originalLetter);
 
-    // Filtrar por título si hay término de búsqueda
+    // Filter by title if there's a search term
     const searchRegex = new RegExp(
       searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
       "i",
@@ -227,11 +227,11 @@ const searchReceivedLetters = async (req, res) => {
       : null;
 
     const filteredLetters = validLetters.filter((cl) => {
-      // Filtrar por título
+      // Filter by title
       if (searchTerm && !searchRegex.test(cl.originalLetter.title))
         return false;
 
-      // Filtrar por sender
+      // Filter by sender
       if (senderRegex && (!cl.sender || !senderRegex.test(cl.sender.nickname)))
         return false;
 
@@ -245,16 +245,16 @@ const searchReceivedLetters = async (req, res) => {
       return true;
     });
 
-    // Obtener lista de senders únicos de todas las cartas (sin filtrar)
+    // Get list of unique senders from all letters (unfiltered)
     const uniqueSenders = [
-      ...new Map(
+      ...new Set(
         validLetters
-          .filter((cl) => cl.sender && cl.sender.nickname)
-          .map((cl) => [cl.sender.nickname, cl.sender.nickname]),
-      ).values(),
+          .filter((cl) => cl.sender?.nickname)
+          .map((cl) => cl.sender.nickname),
+      ),
     ];
 
-    // Aplicar paginación manualmente
+    // Apply pagination manually
     const paginatedLetters = filteredLetters.slice(skip, skip + itemsPerPage);
     const totalLetters = validLetters.length;
     const totalFiltered = filteredLetters.length;
@@ -268,6 +268,7 @@ const searchReceivedLetters = async (req, res) => {
       page,
       itemsPerPage,
       totalLetters,
+      totalFiltered,
       totalPages: Math.ceil(totalFiltered / itemsPerPage),
     });
   } catch (error) {
@@ -296,11 +297,6 @@ const countCorrectedLetters = async (req, res) => {
         counts: {},
       });
     }
-    // Agrupar por idioma y contar
-    /*const countsByLanguage = await CorrectedLetter.aggregate([
-        { $match: { reviewer: userId, sentBack: true } },
-        { $group: { _id: "$language", count: { $sum: 1 } } }
-      ]);*/
     const correctedLetters = await CorrectedLetter.find({
       reviewer: userId,
       sentBack: true,
@@ -315,16 +311,9 @@ const countCorrectedLetters = async (req, res) => {
       return acc;
     }, {});
 
-    // Transformar el resultado a objeto { idioma: count }
-    /*const result = countsByLanguage.reduce((acc, item) => {
-        acc[item._id] = item.count;
-        return acc;
-      }, {});*/
-    const result = countsByLanguage;
-
     res.status(200).json({
       status: "success",
-      counts: result,
+      counts: countsByLanguage,
     });
   } catch (error) {
     console.error("Error counting letters:", error);

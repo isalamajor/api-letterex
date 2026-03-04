@@ -3,10 +3,10 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 require("dotenv").config({ path: ".env.local" });
-// Conexión a BD con manejo de errores
+// BD connection with error handling
 connection().catch((error) => {
-  console.error("Error connecting to the database", error);
-  process.exit(1); // Detiene la aplicación si no se puede conectar a la base de datos
+  console.error("Error connecting to database:", error);
+  process.exit(1); // Stop the application if it can't connect to the database
 });
 
 // Crear servidor node
@@ -28,7 +28,7 @@ app.use(express.urlencoded({ extended: true })); // Convertir datos en formato f
 // Parser de cookies
 app.use(cookieParser());
 
-// Cargar configuración rutas
+// Load route configuration
 const UserRoutes = require("./routes/user");
 const LetterRoutes = require("./routes/letter");
 const FollowRoutes = require("./routes/follow");

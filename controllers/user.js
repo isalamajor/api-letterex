@@ -1,5 +1,7 @@
 const nodemailer = require("nodemailer");
 const { User } = require("../models/user");
+const Letter = require("../models/letter");
+const CorrectedLetter = require("../models/correctedLetter");
 const { VerificationCode } = require("../models/verificationCode");
 const bcrypt = require("bcrypt");
 const jwt = require("../services/jwt");
@@ -18,61 +20,68 @@ const sendVerificationCode = async (req, res) => {
     });
   }
 
-  // Validar el email
+  // Validate email
   if (!email) return res.status(400).json({ message: "Email requerido" });
 
-  // Genera un código aleatorio de 6 dígitos
-  const code = Math.floor(100000 + Math.random() * 900000);
-  const hashedCode = await bcrypt.hash(code.toString(), 10);
-
-  // Calcula la fecha de expiración (7 minutos desde ahora)
-  const expiresAt = new Date(Date.now() + 7 * 60 * 1000);
-
   try {
-    // Buscar y actualizar el código de verificación existente o crear uno nuevo
+    // Generate random 6-digit code between 100k and 1M (excluded)
+    const code = Math.floor(100000 + Math.random() * 900000);
+    const hashedCode = await bcrypt.hash(code.toString(), 10);
+
+    // Calculate expiration date (7 minutes from now)
+    const expiresAt = new Date(Date.now() + 7 * 60 * 1000);
+
+    // Find and update existing verification code or create new one
     const verificationCode = await VerificationCode.findOneAndUpdate(
-      { email }, // Filtro: buscar por email
-      { code: hashedCode, expiresAt, verified: false, purpose }, // Actualizar estos campos
-      { new: true, upsert: true }, // Crear uno nuevo si no existe
+      { email }, // Filter: search by email
+      { code: hashedCode, expiresAt, verified: false, purpose }, // Update these fields
+      { new: true, upsert: true }, // Create new one if it doesn't exist
     );
-  } catch (error) {
-    return res.status(500).json({
-      message: "Error al guardar el código de verificación",
-      error: error.message,
+
+    // Configure SMTP transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
     });
-  }
 
-  // Configura tu transporter SMTP (esto es un ejemplo con Gmail)
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  try {
+    // Absolute path to HTML template
     const templatePath = path.join(
       process.cwd(),
       "templates",
       "verificationCode.html",
     );
+
+    // Generate message
+    const messageByPurpose = {
+      register: "Here's your verification code to complete your registration:",
+      password_reset: "Here's your verification code to reset your password:",
+    };
     let html = fs.readFileSync(templatePath, "utf8");
     html = html
       .replace("${code}", code)
+      .replace(
+        "${message}",
+        messageByPurpose[purpose] || messageByPurpose.register,
+      )
       .replace("${new Date().getFullYear()}", new Date().getFullYear());
 
     const subjectByPurpose = {
       register: "Verification Code - Register",
       password_reset: "Verification Code - Password Reset",
     };
+
+    // Send email
     const resTrans = await transporter.sendMail({
-      from: `"Letterex 🐸" <${process.env.EMAIL_USER}>`,
+      from: `"Letterex" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: subjectByPurpose[purpose] || "Verification Code",
       html: html,
     });
 
+    // Response
     if (resTrans.rejected && resTrans.rejected.length > 0) {
       return res.status(500).json({
         message: "Email inválido",
@@ -90,7 +99,7 @@ const sendVerificationCode = async (req, res) => {
   }
 };
 
-// Función privada para validar códigos de verificación
+// Private function to validate verification codes
 const _validateVerificationCode = async (
   email,
   code,
@@ -179,7 +188,7 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // Validar el código de reset
+    // Validate reset code
     const result = await _validateVerificationCode(
       email,
       code,
@@ -197,7 +206,7 @@ const resetPassword = async (req, res) => {
         });
     }
 
-    // Buscar al usuario en la base de datos
+    // Find user in database
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({
@@ -206,14 +215,14 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    // Cifrar la nueva contraseña
+    // Hash new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Actualizar la contraseña en la base de datos
+    // Update password in database
     user.password = hashedNewPassword;
     await user.save();
 
-    // Marcar el código como utilizado
+    // Mark code as used
     result.verificationCode.verified = true;
     await result.verificationCode.save();
 
@@ -232,10 +241,10 @@ const resetPassword = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    // Recoger parámetros
+    // Get parameters
     const params = req.body;
 
-    // Validación
+    // Validation
     if (
       !params.nickname ||
       !params.email ||
@@ -267,10 +276,10 @@ const register = async (req, res) => {
       });
     }
 
-    // Cifrar contraseña
+    // Hash password
     const hashedPassword = await bcrypt.hash(params.password, 10);
 
-    // Crear objeto usuario
+    // Create user object
     const user = new User({
       ...params,
       password: hashedPassword,
@@ -279,7 +288,7 @@ const register = async (req, res) => {
     // Guardar usuario en BD
     const userSaved = await user.save();
 
-    // Éxito
+    // Success
     return res.status(200).json({
       status: 0,
       message: "Registro exitoso",
@@ -296,10 +305,10 @@ const register = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  // Recoger parámetros
+  // Get parameters
   const params = req.body;
 
-  // Validación
+  // Validation
   if (!params.email || !params.password) {
     return res.status(400).json({
       status: -1,
@@ -320,8 +329,9 @@ const login = async (req, res) => {
     });
   }
 
-  // Verificar contraseña
-  let pwd = bcrypt.compareSync(params.password, user.password); // La que ingresó el user CON la que hay en la db
+  // Verify password
+  // bcrypt.compare(plainTextPassword, hashedStoredPassword)
+  let pwd = await bcrypt.compare(params.password, user.password);
   if (!pwd) {
     return res.status(200).json({
       status: 2,
@@ -332,30 +342,58 @@ const login = async (req, res) => {
   // Generar token JWT
   const token = jwt.createToken(user);
 
-  // Eliminar contraseña y rol del objeto a devolver
+  // Remove password and role from return object
   const userData = user.toObject();
   delete userData.password;
   delete userData.role;
 
-  // Éxito
+  // Obtener countLetters y Transformar el resultado a objeto { idioma: count }
+  const countsByLanguage = await Letter.aggregate([
+    { $match: { author: user.id } },
+    { $group: { _id: "$language", count: { $sum: 1 } } },
+  ]);
+  const countLetters = countsByLanguage.reduce((acc, item) => {
+    acc[item._id] = item.count;
+    return acc;
+  }, {});
+
+  // Obtener CorrectedLetters y Transformar el resultado a objeto { idioma: count }
+  const correctedLetters = await CorrectedLetter.find({
+    reviewer: user.id,
+    sentBack: true,
+  }).populate("originalLetter", "language");
+
+  // Contar por idioma
+  const countCorrectedLetter = correctedLetters.reduce((acc, doc) => {
+    const lang = doc.originalLetter?.language;
+    if (lang) {
+      acc[lang] = (acc[lang] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  userData.countLetters = countLetters;
+  userData.countCorrectedLetter = countCorrectedLetter;
+  userData.profilePictureUrl = `/api/users/profile-picture/${userData.id}`;
+
+  // Success
   return res
     .cookie("authToken", token, {
-      httpOnly: true, // No accesible desde JavaScript
-      secure: process.env.NODE_ENV === "production", // HTTPS en producción
-      sameSite: "strict", // Protege contra CSRF
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 días
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // HTTPS in production
+      sameSite: "strict",
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     })
     .status(200)
     .json({
       status: 0,
       message: "Login exitoso",
       userData,
-      token, // Opcional: lo puedes quitar ya que va en la cookie
     });
 };
 
 const profile = async (req, res) => {
-  // Recibir parámetro id de usuario
+  // Get user id parameter
   const id = req.params.id;
 
   // Si no hay id utilizar el del token
@@ -379,9 +417,36 @@ const profile = async (req, res) => {
     });
   }
 
-  // Eliminar constraseña y rol del objeto a devolver
-  const userResponse = user.toObject(); // Convierte el documento de Mongoose a un objeto plano
+  // Obtener countLetters y Transformar el resultado a objeto { idioma: count }
+  const countsByLanguage = await Letter.aggregate([
+    { $match: { author: user.id } },
+    { $group: { _id: "$language", count: { $sum: 1 } } },
+  ]);
+  const countLetters = countsByLanguage.reduce((acc, item) => {
+    acc[item._id] = item.count;
+    return acc;
+  }, {});
+
+  // Obtener CorrectedLetters y Transformar el resultado a objeto { idioma: count }
+  const correctedLetters = await CorrectedLetter.find({
+    reviewer: user.id,
+    sentBack: true,
+  }).populate("originalLetter", "language"); // Solo traemos el campo language
+
+  // Contar por idioma
+  const countCorrectedLetter = correctedLetters.reduce((acc, doc) => {
+    const lang = doc.originalLetter?.language;
+    if (lang) {
+      acc[lang] = (acc[lang] || 0) + 1;
+    }
+    return acc;
+  }, {});
+
+  // Remove password and role from return object
+  const userResponse = user.toObject(); // Convert Mongoose document to plain object
   userResponse.profilePictureUrl = `/api/users/profile-picture/${userResponse.id}`;
+  userResponse.countLetters = countLetters;
+  userResponse.countCorrectedLetter = countCorrectedLetter;
   delete userResponse.password;
   delete userResponse.role;
 
@@ -400,10 +465,10 @@ const listUsers = async (req, res) => {
   }
 
   try {
-    // Contar los usuarios
+    // Count users
     let totalUsers = await User.countDocuments({}).exec();
 
-    // Búsqueda de users
+    // Search users
     let users = await User.find({})
       .sort("_id")
       .paginate(page, itemsPerPage)
@@ -437,11 +502,15 @@ const update = async (req, res) => {
     // Obtener ID del usuario desde el token (autenticado previamente)
     const userId = req.user.id;
 
-    // Recoger datos de la petición
+    // Get request data
     const { image, ...updateData } = req.body;
-    // Validar que no se intente cambiar información no permitida sin autorización explícita
+
+    // Never allow updating id from body
+    delete updateData.id;
+
+    // Validate that unauthorized information is not being changed
     if (updateData.password || updateData.email || updateData.nickname) {
-      return res.status(400).json({
+      return res.status(401).json({
         status: "error",
         message:
           "No puedes actualizar ni la contraseña, ni el nickname ni el email desde esta función",
@@ -467,7 +536,7 @@ const update = async (req, res) => {
     delete userResponse.password;
     delete userResponse.role;
 
-    // Responder con éxito
+    // Respond with success
     return res.status(200).json({
       status: "success",
       message: "Usuario actualizado con éxito",
@@ -487,10 +556,10 @@ const changePassword = async (req, res) => {
     // Obtener el ID del usuario autenticado desde el token
     const userId = req.user.id;
 
-    // Recoger parámetros de la petición
+    // Get request parameters
     const { currentPassword, newPassword } = req.body;
 
-    // Validar que se envíen los datos necesarios
+    // Validate required data is provided
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         status: "error",
@@ -508,7 +577,7 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Verificar que la contraseña actual sea correcta
+    // Verify current password is correct
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(401).json({
@@ -517,14 +586,14 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Cifrar la nueva contraseña
+    // Hash new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Actualizar la contraseña en la base de datos
+    // Update password in database
     user.password = hashedNewPassword;
     await user.save();
 
-    // Responder con éxito
+    // Respond with success
     return res.status(200).json({
       status: "success",
       message: "Contraseña actualizada con éxito",
@@ -558,19 +627,19 @@ const uploadProfilePicture = async (req, res) => {
       });
     }
 
-    // Eliminar cualquier versión anterior del archivo (diferente extensión)
+    // Remove any previous version of the file (different extension)
     //if (user.image !== "default.png") {
     const folder = path.resolve("./uploads/profile_pictures");
-    const files = fs.readdirSync(folder);
+    const files = await fs.promises.readdir(folder);
     const oldFiles = files.filter(
       (f) => f.startsWith(userId) && f !== req.file.filename,
     );
 
     for (const file of oldFiles) {
       try {
-        fs.unlinkSync(path.join(folder, file));
+        await fs.promises.unlink(path.join(folder, file));
       } catch (err) {
-        console.warn(`⚠️ No se pudo eliminar ${file}:`, err.message);
+        console.warn(`Could not delete ${file}:`, err.message);
       }
     }
     //}
@@ -619,11 +688,9 @@ const deleteProfilePicture = async (req, res) => {
     // Borrar imagen anterior
     const imagePath = path.resolve(`./uploads/profile_pictures/${user.image}`);
     try {
-      if (fs.existsSync(imagePath)) {
-        fs.unlinkSync(imagePath);
-      }
+      await fs.promises.unlink(imagePath);
     } catch (err) {
-      console.warn("⚠️ Error al eliminar imagen:", err.message);
+      console.warn("Error deleting image:", err.message);
     }
 
     // Actualizar campo a default
@@ -648,16 +715,19 @@ const getProfilePicture = async (req, res) => {
   try {
     const user = await User.findById(userId);
 
-    // Si no existe el usuario o la imagen no está definida, usar default
+    // If user doesn't exist or image is not defined, use default
     const imageName = user && user.image ? user.image : "default.png";
     const filePath = path.resolve(`./uploads/profile_pictures/${imageName}`);
 
-    // Si el archivo no existe, usar default
-    const finalPath = fs.existsSync(filePath)
-      ? filePath
-      : path.resolve(`./uploads/profile_pictures/default.png`);
-
-    return res.sendFile(finalPath);
+    // Intentar enviar archivo, si no existe, usar default
+    try {
+      await fs.promises.access(filePath);
+      return res.sendFile(filePath);
+    } catch {
+      return res.sendFile(
+        path.resolve(`./uploads/profile_pictures/default.png`),
+      );
+    }
   } catch (error) {
     console.error("Error al obtener la imagen:", error);
     return res.status(500).json({
@@ -669,7 +739,7 @@ const getProfilePicture = async (req, res) => {
 
 const searchUsers = async (req, res) => {
   try {
-    // Obtener el término de búsqueda desde los parámetros
+    // Get search term from parameters
     const searchTerm = req.query.q;
     if (!searchTerm) {
       return res.status(400).json({
@@ -678,14 +748,14 @@ const searchUsers = async (req, res) => {
       });
     }
 
-    // Expresión regular para hacer la búsqueda case-insensitive
+    // Regular expression for case-insensitive search
     const searchRegex = new RegExp(searchTerm, "i");
 
-    // Obtener página y definir elementos por página
-    const page = parseInt(req.query.page) || 1; // Página por defecto: 1
-    const itemsPerPage = 10; // Máximo de usuarios por página
+    // Get page and define items per page
+    const page = parseInt(req.query.page) || 1; // Default page: 1
+    const itemsPerPage = 10; // Maximum users per page
 
-    // Buscar usuarios con paginación
+    // Search users with pagination
     const users = await User.find({
       $or: [{ nickname: searchRegex }, { email: searchRegex }],
     })
@@ -725,7 +795,7 @@ const checkNickname = async (req, res) => {
 
   const user = await User.findOne({ nickname }); // User con ese nickname
 
-  return res.status(200).json({ status: 0, inUse: !!user }); // Devuelve true si el nickname está en uso, false si no.
+  return res.status(200).json({ status: 0, inUse: !!user }); // Returns true if nickname is in use, false if not
 };
 
 const checkEmail = async (req, res) => {
@@ -738,14 +808,14 @@ const checkEmail = async (req, res) => {
 };
 
 const deleteAccount = async (req, res) => {
-  const userId = req.user.id; // Usa .id si es lo que usas en el resto del código
+  const userId = req.user.id; // Use .id if that's what you use in the rest of the code
   const password = req.body.password;
 
   if (!password) {
     return res.status(400).json({ status: -1, message: "Falta la contraseña" });
   }
 
-  // Verificar la contraseña
+  // Verify password
   const user = await User.findById(userId);
   if (!user) {
     return res

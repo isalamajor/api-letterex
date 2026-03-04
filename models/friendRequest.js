@@ -1,10 +1,9 @@
 const { Schema, model } = require("mongoose");
-const { User } = require("./user");
 
 const FriendRequestSchema = Schema(
   {
     sender: {
-      // Usuario que envía la solicitud
+      // User who sends the request
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,

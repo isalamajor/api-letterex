@@ -33,7 +33,7 @@ const LetterSchema = Schema(
     },
     sharedWith: [
       {
-        // Array con IDs de user con los que se compartió
+        // Array with user IDs with whom it was shared
         type: Schema.Types.ObjectId,
         ref: "User",
       },

@@ -1,5 +1,4 @@
 const Letter = require("../models/letter");
-const correctedLetter = require("../models/correctedLetter");
 const { User } = require("../models/user");
 const CorrectedLetter = require("../models/correctedLetter");
 
@@ -65,7 +64,7 @@ const viewLetter = async (req, res) => {
       return res.status(404).json({ message: "Letter not found." });
     }
 
-    // Verificar que el usuario sea el autor o que la carta haya sido compartida con él
+    // Verify that the user is the author or that the letter has been shared with them
     if (
       letter.author.toString() !== userId &&
       !letter.sharedWith.includes(userId)
@@ -75,7 +74,7 @@ const viewLetter = async (req, res) => {
         .json({ message: "Unauthorized to view this letter." });
     }
 
-    // Obtener el nickname y la imagen de los usuarios con los que se compartió la carta
+    // Get nickname and image of users with whom the letter was shared
     const sharedWithDetails = await Promise.all(
       letter.sharedWith.map(async (friendId) => {
         const friend =
@@ -84,7 +83,7 @@ const viewLetter = async (req, res) => {
       }),
     );
 
-    // Crear el objeto con la información de la carta
+    // Create object with letter information
     const letterDetails = {
       created_at: letter.created_at,
       title: letter.title,
@@ -197,7 +196,7 @@ const deleteLetter = async (letterId) => {
       return -2;
     }
 
-    // Si no está compartida, eliminarla físicamente
+    // If not shared, delete it physically
     if (letter.sharedWith.length === 0) {
       await Letter.findByIdAndDelete(letterId);
       return 0;
@@ -235,12 +234,10 @@ const deleteLetters = async (req, res) => {
         .status(200)
         .json({ message: "All letters deleted successfully.", countDeleted });
     } else if (countDeleted < letterIds.length) {
-      return res
-        .status(201)
-        .json({
-          message: "Some letters deleted successfully, not all.",
-          countDeleted,
-        });
+      return res.status(201).json({
+        message: "Some letters deleted successfully, not all.",
+        countDeleted,
+      });
     }
     return res.status(500).json({ message: "Error deleting letters." });
   } catch (error) {
@@ -386,13 +383,34 @@ const shareLetter = async (req, res) => {
         .json({ message: "Unauthorized to share this letter." });
     }
 
-    // Actualizar la carta para agregar los usuarios con los que se comparte
-    letter.sharedWith = [...new Set([...letter.sharedWith, ...sharedWith])];
+    // Filter only new users (not already in sharedWith)
+    const existingSharedWith = letter.sharedWith.map((id) => id.toString());
+    const newUsersToShare = sharedWith.filter(
+      (friendId) => !existingSharedWith.includes(friendId.toString()),
+    );
+
+    // Verify that the 2-user limit is not exceeded
+    const totalSharedWith = existingSharedWith.length + newUsersToShare.length;
+    if (totalSharedWith > 2) {
+      return res.status(400).json({
+        message: `Cannot share with more than 2 people. Currently shared with ${existingSharedWith.length}, trying to add ${newUsersToShare.length}.`,
+      });
+    }
+
+    // Si no hay usuarios nuevos, retornar
+    if (newUsersToShare.length === 0) {
+      return res.status(400).json({
+        message: "Letter already shared with these users.",
+      });
+    }
+
+    // Actualizar la carta para agregar solo los usuarios nuevos
+    letter.sharedWith = [...letter.sharedWith, ...newUsersToShare];
     await letter.save();
 
-    // Crear un nuevo objeto CorrectedLetter para cada usuario en sharedWith
+    // Crear un nuevo objeto CorrectedLetter solo para los usuarios nuevos
     const correctedLetters = await Promise.all(
-      sharedWith.map(async (friendId) => {
+      newUsersToShare.map(async (friendId) => {
         const newCorrectedLetter = new CorrectedLetter({
           originalLetter: letterId,
           sender: letter.author,
@@ -427,7 +445,7 @@ const getUserDiaries = async (req, res) => {
     // Buscar todas las cartas del usuario
     const letters = await Letter.find({ author: userId }).select("diary");
 
-    // Filtrar y devolver los diarios únicos
+    // Filter and return unique diaries
     const diaries = [
       ...new Set(
         letters.map((letter) => letter.diary).filter((diary) => diary),

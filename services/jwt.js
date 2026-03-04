@@ -2,13 +2,13 @@ const jwt = require("jwt-simple");
 const moment = require("moment");
 require("dotenv").config({ path: ".env.local" });
 
-// Clave secreta
+// Secret key
 const secret = process.env.SECRET_KEY_API;
 
-// Función para generar tokens
+// Function to generate tokens
 createToken = (user) => {
   const payload = {
-    // Info del usuario que vamos a tener disponible en la sesión
+    // User info that we'll have available in the session
     id: user._id,
     nickname: user.nickname,
     email: user.email,
@@ -21,10 +21,10 @@ createToken = (user) => {
     image: user.image,
     created_at: user.created_at,
     iat: moment().unix(), // Momento en el que se crea el payload
-    ex: moment().add(10, "days").unix(), // Fecha de expiración de la sesión
+    ex: moment().add(10, "days").unix(), // Session expiration date
   };
 
-  return jwt.encode(payload, secret); // Generar JWT
+  return jwt.encode(payload, secret); // Generate JWT
 };
 
 module.exports = {

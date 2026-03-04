@@ -1,0 +1,70 @@
+\begin{longtable}{|l|p{5cm}|p{8cm}|}
+\hline
+\textbf{Función} & \textbf{Ruta} & \textbf{Descripción} \\
+\hline
+\endhead
+\hline
+\endfoot
+\multicolumn{3}{|c|}{\textbf{User Routes}} \\
+\hline
+POST & /api/users/register & Registrar nuevo usuario. \newline \textbf{Valores de entrada:} nickname*, email*, password*, master\-Language*, learning\-Language* \newline \textbf{Valores de salida:} \{status: 0, message, user\} \\
+POST & /api/users/login & Iniciar sesión. \newline \textbf{Valores de entrada:} email* (string, puede ser email o nickname), password* \newline \textbf{Valores de salida:} \{status: 0, userData, token, cookie authToken\} \\
+POST & /api/users/logout & Cerrar sesión. \newline \textbf{Valores de entrada:} ninguno \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+GET & /api/users/profile/:id? & Obtener perfil de usuario \newline \textbf{Valores de salida:} \{status: "success", user\} \\
+GET & /api/users/list-users/:page? & Listar usuarios con paginación \newline \textbf{Valores de salida:} \{status: "success", users, page, itemsPerPage, totalUsers, totalPages\} \\
+PUT & /api/users/update & Actualizar datos del usuario autenticado \newline \textbf{Valores de salida:} \{status: "success", userData\} \\
+PUT & /api/users/change-password & Cambiar contraseña actual \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+PUT & /api/users/profile-picture & Subir foto de perfil \newline \textbf{Valores de salida:} \{status: "success", userId, profilePicture\} \\
+DELETE & /api/users/profile-picture & Eliminar foto de perfil \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+GET & /api/users/profile-picture/:id & Obtener foto de perfil de un usuario \newline \textbf{Valores de salida:} Archivo (imagen) \\
+GET & /api/users/check-nickname/:nickname & Verificar disponibilidad de nickname \newline \textbf{Valores de salida:} \{status: 0, inUse: boolean\} \\
+GET & /api/users/check-email/:email & Verificar si email está registrado \newline \textbf{Valores de salida:} \{result: 0, inUse: boolean\} \\
+POST & /api/users/verification-code & Enviar código de verificación. \newline \textbf{Valores de entrada:} email*, purpose \newline \textbf{Valores de salida:} \{message: "Código enviado"\} \\
+POST & /api/users/check-code & Verificar código de verificación. \newline \textbf{Valores de entrada:} email*, code*, purpose \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+PUT & /api/users/reset-password & Restablecer contraseña con código \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+DELETE & /api/users/delete-account & Eliminar cuenta de usuario \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+\hline
+\hline
+\multicolumn{3}{|c|}{\textbf{Letter Routes}} \\
+\hline
+POST & /api/letters/new & Guardar una carta nueva. \newline \textbf{Valores de entrada:} title*, content*, language*, created\_at*, diary \newline \textbf{Valores de salida:} \{status: "success", message, letter\} \\
+GET & /api/letters/view/:letterId & Obtener información y contenido de carta \newline \textbf{Valores de salida:} \{status: "success", letter, sharedWithDetails\} \\
+PUT & /api/letters/edit/:id & Editar una carta existente \newline \textbf{Valores de salida:} \{status: "success", message, letter\} \\
+PUT & /api/letters/edit-diary & Editar el diario de una carta \newline \textbf{Valores de salida:} \{status: "success", message, letter\} \\
+DELETE & /api/letters/delete/ & Eliminar una o varias cartas \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+GET & /api/letters/list & Listar todas las cartas del usuario \newline \textbf{Valores de salida:} \{status: "success", letters, count\} \\
+GET & /api/letters/list/search & Buscar cartas por título \newline \textbf{Valores de salida:} \{status: "success", letters\} \\
+POST & /api/letters/share/:id & Compartir una carta. \newline \textbf{Valores de entrada:} shared\-With* \newline \textbf{Valores de salida:} \{message, letter, correctedLetters\} \\
+GET & /api/letters/diaries & Listar diarios del usuario \newline \textbf{Valores de salida:} \{status: "success", diaries\} \\
+GET & /api/letters/count/:id? & Contar cartas por idioma \newline \textbf{Valores de salida:} Array de \{language, count\} \\
+\hline
+\hline
+\multicolumn{3}{|c|}{\textbf{Follow Routes}} \\
+\hline
+POST & /api/follow/add/:id & Seguir a un usuario. \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+DELETE & /api/follow/unfollow/:id & Dejar de seguir a un usuario \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+GET & /api/follow/request/:id & Verificar si existe solicitud de amistad \newline \textbf{Valores de salida:} \{status: "success", exists: boolean\} \\
+GET & /api/follow/friends & Obtener lista de amigos \newline \textbf{Valores de salida:} \{status: "success", count, friends\} \\
+GET & /api/follow/non-friends & Obtener usuarios no amigos \newline \textbf{Valores de salida:} \{status: "success", users, totalUsers, totalPages\} \\
+GET & /api/follow/non-friends/:filter & Obtener no amigos con filtro \newline \textbf{Valores de salida:} \{status: "success", users, totalUsers, totalPages\} \\
+GET & /api/follow/suggested & Obtener usuarios sugeridos \newline \textbf{Valores de salida:} \{status: "success", suggestedUsers\} \\
+POST & /api/follow/request/:id & Enviar solicitud de amistad. \newline \textbf{Valores de salida:} \{status: "success", message, friendRequest\} \\
+GET & /api/follow/requests & Listar solicitudes de amistad recibidas \newline \textbf{Valores de salida:} \{status: "success", requests\} \\
+POST & /api/follow/accept/:id & Aceptar solicitud de amistad. \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+POST & /api/follow/decline/:id & Rechazar solicitud de amistad. \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+\hline
+\hline
+\multicolumn{3}{|c|}{\textbf{Corrected Letter Routes}} \\
+\hline
+PATCH & /api/corrected-letters/send-back/:corrected\-Letter\-Id & Devolver carta corregida al autor \newline \textbf{Valores de salida:} \{status: "success", message, correctedLetter\} \\
+GET & /api/corrected-letters/corrections/:original\-Letter\-Id & Obtener correcciones de una carta \newline \textbf{Valores de salida:} \{status: "success", corrections\} \\
+GET & /api/corrected-letters/corrected\-Letter/:corrected\-Letter\-Id & Obtener corrección específica por ID \newline \textbf{Valores de salida:} \{status: "success", correctedLetter\} \\
+GET & /api/corrected-letters/received/ & Obtener cartas recibidas para corregir \newline \textbf{Valores de salida:} \{status: "success", correctedLetters, count\} \\
+GET & /api/corrected-letters/received/search & Buscar cartas recibidas \newline \textbf{Valores de salida:} \{status: "success", correctedLetters\} \\
+PUT & /api/corrected-letters/update/:corrected\-Letter\-Id & Actualizar correcciones en proceso \newline \textbf{Valores de salida:} \{status: "success", message, correctedLetter\} \\
+GET & /api/corrected-letters/count/:id? & Contar cartas corregidas por idioma \newline \textbf{Valores de salida:} Array de \{language, count\} \\
+DELETE & /api/corrected-letters/:corrected\-Letter\-Id & Eliminar carta corregida \newline \textbf{Valores de salida:} \{status: "success", message\} \\
+\hline
+\caption{Rutas de la API de Letterex}
+\label{tab:rutas-api}
+\end{longtable}
