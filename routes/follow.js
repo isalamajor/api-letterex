@@ -10,6 +10,11 @@ router.delete(
   auth.authentificate,
   FollowController.deleteFollow,
 );
+router.delete(
+  "/friend/:id",
+  auth.authentificate,
+  FollowController.deleteFriend,
+);
 router.get(
   "/request/:id",
   auth.authentificate,

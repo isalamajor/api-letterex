@@ -11,13 +11,19 @@ router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Ed
 router.put("/edit-diary", auth.authentificate, LetterController.editLetter); // Editar el diario de una carta
 router.delete("/delete/", auth.authentificate, LetterController.deleteLetters); // Eliminar una carta
 router.get("/list", auth.authentificate, LetterController.listLetters); // Listar todas las cartas del usuario
+router.get("/list/diary", auth.authentificate, LetterController.listDiaryLetters); // Listar cartas de un diario
 router.get(
   "/list/search",
   auth.authentificate,
   LetterController.searchLettersByTitle,
-); // Buscar cartas por titulo
+); // Buscar cartas por titulo y diario´
 router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Compartir una carta
 router.get("/diaries", auth.authentificate, LetterController.getUserDiaries); // Listar diarios del usuario
+router.get(
+  "/diaries/counts",
+  auth.authentificate,
+  LetterController.getUserDiariesWithCounts,
+); // Listar diarios con conteo de cartas
 router.get("/count/:id?", auth.authentificate, LetterController.countLetters); // Contar cartas del usuario logeado o del id por idioma
 
 // Exportar router

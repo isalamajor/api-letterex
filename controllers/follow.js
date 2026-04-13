@@ -3,6 +3,7 @@ const Follow = require("../models/follow");
 const CorrectedLetter = require("../models/correctedLetter");
 const FriendRequest = require("../models/friendRequest");
 const mongoose = require("mongoose");
+const { buildProfilePictureUrl } = require("../services/profilePicture");
 
 const pruebaFollow = (req, res) => {
   return res.status(200).json({
@@ -141,7 +142,7 @@ const listFriendRequests = async (req, res) => {
         ...reqObj,
         sender: {
           ...reqObj.sender,
-          profilePictureUrl: `/api/users/profile-picture/${reqObj.sender.id}`,
+          profilePictureUrl: buildProfilePictureUrl(reqObj.sender),
         },
       };
     });
@@ -322,6 +323,51 @@ const deleteFollow = async (req, res) => {
   }
 };
 
+const deleteFriend = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const friendId = req.params.id;
+
+    if (!friendId || friendId === "undefined" || userId === friendId) {
+      return res.status(400).json({
+        status: "error",
+        message: "Invalid friend id",
+      });
+    }
+
+    const deletedFollow = await Follow.findOneAndDelete({
+      $or: [
+        { user1: userId, user2: friendId },
+        { user1: friendId, user2: userId },
+      ],
+    });
+
+    if (!deletedFollow) {
+      return res.status(404).json({
+        status: "error",
+        message: "Friend relationship not found",
+      });
+    }
+
+    // Cleanup stale/pending requests in either direction.
+    await FriendRequest.deleteMany({
+      $or: [
+        { sender: userId, receiver: friendId },
+        { sender: friendId, receiver: userId },
+      ],
+    });
+
+    return res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting friend:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Error deleting friend",
+      error: error.message,
+    });
+  }
+};
+
 const getFriends = async (req, res) => {
   try {
     // Obtener el ID del usuario autenticado desde el token
@@ -333,29 +379,31 @@ const getFriends = async (req, res) => {
     });
 
     // Extraer IDs de amigos
-    friendIds = new Set(); // Avoid duplicates
+    const friendIds = new Set(); // Avoid duplicates
 
     friends.forEach((follow) => {
-      if (follow.user1 === userId) {
-        friendIds.add(follow.user2);
+      if (follow.user1.toString() === userId.toString()) {
+        friendIds.add(follow.user2.toString());
       } else {
-        friendIds.add(follow.user1);
+        friendIds.add(follow.user1.toString());
       }
     });
 
     // For each friend, get their basic information
-    const friendDetails = await Promise.all(
-      Array.from(friendIds).map(async (friendId) => {
-        const friend =
-          await User.findById(friendId).select("nickname image _id");
-        if (friend) {
-          const obj = friend.toObject();
-          obj.profilePictureUrl = `/api/users/profile-picture/${obj.id}`;
-          return obj;
-        }
-        return null;
-      }),
-    );
+    const friendDetails = (
+      await Promise.all(
+        Array.from(friendIds).map(async (friendId) => {
+          const friend =
+            await User.findById(friendId).select("nickname image _id");
+          if (friend) {
+            const obj = friend.toObject();
+            obj.profilePictureUrl = buildProfilePictureUrl(obj);
+            return obj;
+          }
+          return null;
+        }),
+      )
+    ).filter(Boolean);
 
     // For each friend, get how many letters have been exchanged
     const lettersExchanged = await Promise.all(
@@ -373,7 +421,7 @@ const getFriends = async (req, res) => {
     // Add to friendDetails
     lettersExchanged.forEach(({ friendId, count }) => {
       const friend = friendDetails.find(
-        (f) => f.id.toString() === friendId.toString(),
+        (f) => f && f.id.toString() === friendId.toString(),
       );
       if (friend) {
         friend.lettersExchanged = count;
@@ -382,7 +430,7 @@ const getFriends = async (req, res) => {
 
     return res.status(200).json({
       status: "success",
-      count: friendIds.size,
+      count: friendDetails.length,
       friends: friendDetails,
     });
   } catch (error) {
@@ -418,7 +466,7 @@ const getNonFriends = async (req, res) => {
 
         return {
           ...user.toObject(),
-          profilePictureUrl: `/api/users/profile-picture/${user._id}`,
+          profilePictureUrl: buildProfilePictureUrl(user),
           friendRequestSent: !!existingRequest, // true si existe, false si no
         };
       }),
@@ -478,7 +526,7 @@ const getNonFriendsByFilter = async (req, res) => {
         const userObj = user.toObject();
         return {
           ...userObj,
-          profilePictureUrl: `/api/users/profile-picture/${userObj.id}`,
+          profilePictureUrl: buildProfilePictureUrl(userObj),
           friendRequestSent: !!existingRequest, // true si existe, false si no
         };
       }),
@@ -590,6 +638,7 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
       {
         $project: {
           id: "$_id",
+          _id: 0,
           nickname: 1,
           image: 1,
           learningLanguage: 1,
@@ -599,11 +648,15 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
           masterLanguage2: 1,
           masterLanguage3: 1,
           profilePictureUrl: {
-            $concat: ["/api/users/profile-picture/", { $toString: "$_id" }],
+            $literal: null,
           },
         },
       },
     ]);
+
+    usersToLearn.forEach((user) => {
+      user.profilePictureUrl = buildProfilePictureUrl(user);
+    });
 
     excludedIds.push(...usersToLearn.map((user) => user.id));
 
@@ -613,6 +666,7 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
       {
         $project: {
           id: "$_id",
+          _id: 0,
           nickname: 1,
           image: 1,
           learningLanguage: 1,
@@ -622,11 +676,15 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
           masterLanguage2: 1,
           masterLanguage3: 1,
           profilePictureUrl: {
-            $concat: ["/api/users/profile-picture/", { $toString: "$_id" }],
+            $literal: null,
           },
         },
       },
     ]);
+
+    usersToTeach.forEach((user) => {
+      user.profilePictureUrl = buildProfilePictureUrl(user);
+    });
 
     suggestedUsers = [...new Set([...usersToLearn, ...usersToTeach])];
     excludedIds.push(...usersToTeach.map((user) => user.id));
@@ -640,6 +698,7 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
         {
           $project: {
             id: "$_id",
+            _id: 0,
             nickname: 1,
             image: 1,
             learningLanguage: 1,
@@ -649,11 +708,15 @@ const getSuggestedUsersByPriority = async (userId, limit = 10) => {
             masterLanguage2: 1,
             masterLanguage3: 1,
             profilePictureUrl: {
-              $concat: ["/api/users/profile-picture/", { $toString: "$_id" }],
+              $literal: null,
             },
           },
         },
       ]);
+
+      randomUsers.forEach((user) => {
+        user.profilePictureUrl = buildProfilePictureUrl(user);
+      });
       suggestedUsers.push(...randomUsers);
     }
 
@@ -673,6 +736,7 @@ module.exports = {
   pruebaFollow,
   saveFollow,
   deleteFollow,
+  deleteFriend,
   getFriends,
   sendFriendRequest,
   listFriendRequests,

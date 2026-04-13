@@ -2,11 +2,14 @@ const nodemailer = require("nodemailer");
 const { User } = require("../models/user");
 const Letter = require("../models/letter");
 const CorrectedLetter = require("../models/correctedLetter");
+const Follow = require("../models/follow");
 const { VerificationCode } = require("../models/verificationCode");
 const bcrypt = require("bcrypt");
 const jwt = require("../services/jwt");
 const path = require("path");
 const fs = require("fs");
+const { cloudinary, uploadBuffer } = require("../services/cloudinary");
+const { buildProfilePictureUrl } = require("../services/profilePicture");
 
 const sendVerificationCode = async (req, res) => {
   const { email } = req.body;
@@ -323,7 +326,7 @@ const login = async (req, res) => {
     user = await User.findOne({ nickname: params.email });
   }
   if (!user) {
-    return res.status(200).json({
+    return res.status(404).json({
       status: 1,
       message: "User not registered",
     });
@@ -333,7 +336,7 @@ const login = async (req, res) => {
   // bcrypt.compare(plainTextPassword, hashedStoredPassword)
   let pwd = await bcrypt.compare(params.password, user.password);
   if (!pwd) {
-    return res.status(200).json({
+    return res.status(401).json({
       status: 2,
       message: "Wrong password",
     });
@@ -374,7 +377,7 @@ const login = async (req, res) => {
 
   userData.countLetters = countLetters;
   userData.countCorrectedLetter = countCorrectedLetter;
-  userData.profilePictureUrl = `/api/users/profile-picture/${userData.id}`;
+  userData.profilePictureUrl = buildProfilePictureUrl(userData);
 
   // Success
   return res
@@ -382,7 +385,7 @@ const login = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production", // HTTPS in production
       sameSite: "strict",
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      maxAge: 5 * 24 * 60 * 60 * 1000, // 5  days
     })
     .status(200)
     .json({
@@ -394,7 +397,7 @@ const login = async (req, res) => {
 
 const profile = async (req, res) => {
   // Get user id parameter
-  const id = req.params.id;
+  let id = req.params.id;
 
   // Si no hay id utilizar el del token
   if (!id && req.user && req.user.id) {
@@ -417,36 +420,56 @@ const profile = async (req, res) => {
     });
   }
 
-  // Obtener countLetters y Transformar el resultado a objeto { idioma: count }
-  const countsByLanguage = await Letter.aggregate([
-    { $match: { author: user.id } },
-    { $group: { _id: "$language", count: { $sum: 1 } } },
-  ]);
+  const authenticatedUserId = req.user.id;
+  const isOwnProfile = authenticatedUserId.toString() === user.id.toString();
+
+  const [countsByLanguage, correctedByLanguage, friendRelation] =
+    await Promise.all([
+      Letter.aggregate([
+        { $match: { author: user.id } },
+        { $group: { _id: "$language", count: { $sum: 1 } } },
+      ]),
+      CorrectedLetter.aggregate([
+        { $match: { reviewer: user._id, sentBack: true } },
+        {
+          $lookup: {
+            from: "letters",
+            localField: "originalLetter",
+            foreignField: "_id",
+            as: "originalLetterDoc",
+          },
+        },
+        { $unwind: "$originalLetterDoc" },
+        { $group: { _id: "$originalLetterDoc.language", count: { $sum: 1 } } },
+      ]),
+      isOwnProfile
+        ? Promise.resolve(null)
+        : Follow.exists({
+            $or: [
+              { user1: authenticatedUserId, user2: user.id },
+              { user1: user.id, user2: authenticatedUserId },
+            ],
+          }),
+    ]);
+
   const countLetters = countsByLanguage.reduce((acc, item) => {
     acc[item._id] = item.count;
     return acc;
   }, {});
 
-  // Obtener CorrectedLetters y Transformar el resultado a objeto { idioma: count }
-  const correctedLetters = await CorrectedLetter.find({
-    reviewer: user.id,
-    sentBack: true,
-  }).populate("originalLetter", "language"); // Solo traemos el campo language
-
-  // Contar por idioma
-  const countCorrectedLetter = correctedLetters.reduce((acc, doc) => {
-    const lang = doc.originalLetter?.language;
-    if (lang) {
-      acc[lang] = (acc[lang] || 0) + 1;
-    }
+  const countCorrectedLetter = correctedByLanguage.reduce((acc, item) => {
+    acc[item._id] = item.count;
     return acc;
   }, {});
 
   // Remove password and role from return object
   const userResponse = user.toObject(); // Convert Mongoose document to plain object
-  userResponse.profilePictureUrl = `/api/users/profile-picture/${userResponse.id}`;
+  userResponse.profilePictureUrl = buildProfilePictureUrl(userResponse);
   userResponse.countLetters = countLetters;
   userResponse.countCorrectedLetter = countCorrectedLetter;
+  if (!isOwnProfile) {
+    userResponse.isFriend = !!friendRelation;
+  }
   delete userResponse.password;
   delete userResponse.role;
 
@@ -610,7 +633,7 @@ const changePassword = async (req, res) => {
 
 const uploadProfilePicture = async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({
         status: "error",
         message: "No se subió ninguna imagen",
@@ -620,34 +643,36 @@ const uploadProfilePicture = async (req, res) => {
     const userId = req.user.id;
     const user = await User.findById(userId);
     if (!user) {
-      fs.unlinkSync(req.file.path);
       return res.status(404).json({
         status: "error",
         message: "Usuario no encontrado",
       });
     }
 
-    // Remove any previous version of the file (different extension)
-    //if (user.image !== "default.png") {
-    const folder = path.resolve("./uploads/profile_pictures");
-    const files = await fs.promises.readdir(folder);
-    const oldFiles = files.filter(
-      (f) => f.startsWith(userId) && f !== req.file.filename,
-    );
+    const profilePicturePublicId = `letterex/profile_pictures/${userId}`;
 
-    for (const file of oldFiles) {
-      try {
-        await fs.promises.unlink(path.join(folder, file));
-      } catch (err) {
-        console.warn(`Could not delete ${file}:`, err.message);
-      }
-    }
-    //}
+    const uploadedImage = await uploadBuffer(req.file.buffer, {
+      public_id: profilePicturePublicId,
+      use_filename: false,
+      unique_filename: false,
+      overwrite: true,
+      invalidate: true,
+      resource_type: "image",
+      transformation: [
+        {
+          width: 800,
+          height: 800,
+          crop: "limit",
+        },
+      ],
+    });
 
-    // Guardar el nuevo nombre del archivo en la base de datos
+    // Guardar la URL en la base de datos
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { image: req.file.filename },
+      {
+        image: uploadedImage.secure_url,
+      },
       { new: true },
     );
 
@@ -656,6 +681,7 @@ const uploadProfilePicture = async (req, res) => {
       message: "Foto de perfil actualizada con éxito",
       userId: user.id,
       profilePicture: updatedUser.image,
+      profilePictureUrl: buildProfilePictureUrl(updatedUser),
     });
   } catch (error) {
     console.error("Error al subir la foto de perfil:", error);
@@ -685,15 +711,10 @@ const deleteProfilePicture = async (req, res) => {
       });
     }
 
-    // Borrar imagen anterior
-    const imagePath = path.resolve(`./uploads/profile_pictures/${user.image}`);
-    try {
-      await fs.promises.unlink(imagePath);
-    } catch (err) {
-      console.warn("Error deleting image:", err.message);
-    }
+    const profilePicturePublicId = `letterex/profile_pictures/${userId}`;
+    await cloudinary.uploader.destroy(profilePicturePublicId);
 
-    // Actualizar campo a default
+    // Actualizar campos al estado por defecto
     user.image = "default.png";
     await user.save();
 
@@ -715,7 +736,12 @@ const getProfilePicture = async (req, res) => {
   try {
     const user = await User.findById(userId);
 
-    // If user doesn't exist or image is not defined, use default
+    // If user has a Cloudinary URL, redirect directly to it.
+    if (user && user.image && /^https?:\/\//i.test(user.image)) {
+      return res.redirect(user.image);
+    }
+
+    // Fallback for legacy local images/default
     const imageName = user && user.image ? user.image : "default.png";
     const filePath = path.resolve(`./uploads/profile_pictures/${imageName}`);
 

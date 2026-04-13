@@ -1,5 +1,5 @@
 # setup.ps1
-Write-Host "🚀 Iniciando script de configuración..."
+Write-Host "Iniciando script de configuración..."
 
 # Ir al directorio del proyecto de MongoDB
 Set-Location "C:\Program Files\MongoDB\Server\8.0\bin"

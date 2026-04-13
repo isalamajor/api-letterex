@@ -26,10 +26,20 @@ API for a social network to exchange letters and learn languages
 - **PUT** `http://localhost:3090/api/user/change-password` 🔑  
   (currentPassword* newPassword*)
 
-- **POST** `http://localhost:3090/api/user/profile-picture` 🔑  
-  (file)
+- **PUT** `http://localhost:3090/api/user/profile-picture` 🔑  
+  (file0)
 
 - **GET** `http://localhost:3090/api/user/profile-picture/:id`
+
+---
+
+## Cloudinary configuration
+
+To store profile pictures in Cloudinary, configure these environment variables in your `.env.local`:
+
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
 
 ---
 

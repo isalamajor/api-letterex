@@ -1,6 +1,7 @@
 const Letter = require("../models/letter");
 const { User } = require("../models/user");
 const CorrectedLetter = require("../models/correctedLetter");
+const Follow = require("../models/follow");
 
 const saveLetter = async (req, res) => {
   try {
@@ -292,19 +293,104 @@ const listLetters = async (req, res) => {
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const itemsPerPage = Math.max(parseInt(req.query.itemsPerPage) || 10, 1);
     const skip = (page - 1) * itemsPerPage;
-
+    const searchTerm =
+      typeof req.query.q === "string" ? req.query.q.trim() : "";
     const query = { author: userId, deleted: false };
 
-    // Obtener solo los campos necesarios, excluyendo contenido y audio
-    const letters = await Letter.find(query)
-      .select("title diary language created_at sharedWith")
-      .sort({ created_at: -1 })
-      .skip(skip)
-      .limit(itemsPerPage);
+    if (searchTerm) {
+      const searchRegex = new RegExp(
+        searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i",
+      );
+      query.$or = [
+        { title: searchRegex },
+        { diary: searchRegex },
+        { language: searchRegex },
+      ];
+    }
 
     const totalLetters = await Letter.countDocuments(query);
-    const lettersWithCorrections = await buildLettersWithCorrections(letters);
 
+    const lettersWithCorrections = await Letter.aggregate([
+      { $match: query },
+      { $sort: { created_at: -1 } },
+      { $skip: skip },
+      { $limit: itemsPerPage },
+      // 1. Unir con la colección de Usuarios para obtener detalles de los amigos
+      {
+        $lookup: {
+          from: "users",
+          localField: "sharedWith",
+          foreignField: "_id",
+          as: "sharedWithDetails",
+        },
+      },
+      // 2. Unir con CorrectedLetter para ver si hay correcciones
+      {
+        $lookup: {
+          from: "correctedletters",
+          let: { letterId: "$_id", friends: "$sharedWith" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$originalLetter", "$$letterId"] },
+                    { $eq: ["$sentBack", true] },
+                  ],
+                },
+              },
+            },
+          ],
+          as: "corrections",
+        },
+      },
+      // 3. Formatear la salida final
+      {
+        $project: {
+          id: "$_id",
+          _id: 0,
+          title: 1,
+          diary: 1,
+          language: 1,
+          created_at: 1,
+          sharedWith: {
+            $map: {
+              input: "$sharedWithDetails",
+              as: "friend",
+              in: {
+                id: "$$friend._id",
+                _id: 0,
+                nickname: "$$friend.nickname",
+                image: "$$friend.image",
+                correctionSentBack: {
+                  $in: ["$$friend._id", "$corrections.reviewer"],
+                },
+                // Buscamos el ID de la corrección específica de ese amigo
+                correctedLetterId: {
+                  $arrayElemAt: [
+                    {
+                      $map: {
+                        input: {
+                          $filter: {
+                            input: "$corrections",
+                            as: "c",
+                            cond: { $eq: ["$$c.reviewer", "$$friend._id"] },
+                          },
+                        },
+                        as: "filtered",
+                        in: "$$filtered._id",
+                      },
+                    },
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        },
+      },
+    ]);
     return res.status(200).json({
       letters: lettersWithCorrections,
       page,
@@ -317,6 +403,74 @@ const listLetters = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Error fetching letters", error: error.message });
+  }
+};
+
+const listDiaryLetters = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const diaryFilter =
+      typeof req.query.diary === "string" ? req.query.diary.trim() : "";
+    const searchTerm =
+      typeof req.query.q === "string" ? req.query.q.trim() : "";
+
+    if (!diaryFilter) {
+      return res.status(400).json({
+        message: "Diary is required.",
+      });
+    }
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const itemsPerPage = Math.max(parseInt(req.query.itemsPerPage) || 10, 1);
+    const skip = (page - 1) * itemsPerPage;
+    const query = { author: userId, deleted: false };
+
+    if (diaryFilter.toLowerCase() === "unclassified") {
+      query.$or = [
+        { diary: { $exists: false } },
+        { diary: null },
+        { diary: "" },
+      ];
+    } else {
+      query.diary = diaryFilter;
+    }
+
+    if (searchTerm) {
+      const searchRegex = new RegExp(
+        searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+        "i",
+      );
+      query.$or = [{ title: searchRegex }, { language: searchRegex }];
+    }
+
+    const totalLetters = await Letter.countDocuments(query);
+
+    const letters = await Letter.find(query)
+      .select("title language created_at")
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(itemsPerPage)
+      .lean();
+
+    const lettersWithId = letters.map((letter) => ({
+      id: letter._id.toString(),
+      title: letter.title,
+      language: letter.language,
+      created_at: letter.created_at,
+    }));
+
+    return res.status(200).json({
+      letters: lettersWithId,
+      page,
+      itemsPerPage,
+      totalLetters,
+      totalPages: Math.ceil(totalLetters / itemsPerPage),
+    });
+  } catch (error) {
+    console.error("Error fetching diary letters:", error);
+    return res.status(500).json({
+      message: "Error fetching diary letters",
+      error: error.message,
+    });
   }
 };
 
@@ -404,6 +558,30 @@ const shareLetter = async (req, res) => {
       });
     }
 
+    // Verify all target users are friends with the author before sharing.
+    const friendshipChecks = await Promise.all(
+      newUsersToShare.map(async (friendId) => {
+        const friendship = await Follow.findOne({
+          $or: [
+            { user1: userId, user2: friendId.toString() },
+            { user1: friendId.toString(), user2: userId },
+          ],
+        }).select("_id");
+        return { friendId: friendId.toString(), isFriend: !!friendship };
+      }),
+    );
+
+    const nonFriends = friendshipChecks
+      .filter((item) => !item.isFriend)
+      .map((item) => item.friendId);
+
+    if (nonFriends.length > 0) {
+      return res.status(403).json({
+        message: "Cannot share letter with users who are not your friends.",
+        nonFriends,
+      });
+    }
+
     // Actualizar la carta para agregar solo los usuarios nuevos
     letter.sharedWith = [...letter.sharedWith, ...newUsersToShare];
     await letter.save();
@@ -442,22 +620,60 @@ const getUserDiaries = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Buscar todas las cartas del usuario
-    const letters = await Letter.find({ author: userId }).select("diary");
-
-    // Filter and return unique diaries
-    const diaries = [
-      ...new Set(
-        letters.map((letter) => letter.diary).filter((diary) => diary),
-      ),
-    ];
-    return res.status(200).json({
-      message: "success",
-      diaries: diaries,
+    // Obtener diarios unicos directamente en BD para evitar cargar todas las cartas en memoria
+    const diaries = await Letter.distinct("diary", {
+      author: userId,
+      diary: { $exists: true, $nin: [null, ""] },
     });
+
+    return res.status(200).json(diaries);
   } catch (error) {
     return res.status(500).json({
       message: "Error getting diaries",
+      error: error.message,
+    });
+  }
+};
+
+const getUserDiariesWithCounts = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const countsByDiary = await Letter.aggregate([
+      { $match: { author: userId } },
+      {
+        $project: {
+          diaryKey: {
+            $let: {
+              vars: {
+                normalizedDiary: {
+                  $trim: { input: { $ifNull: ["$diary", ""] } },
+                },
+              },
+              in: {
+                $cond: [
+                  { $eq: ["$$normalizedDiary", ""] },
+                  "unclassified",
+                  "$$normalizedDiary",
+                ],
+              },
+            },
+          },
+        },
+      },
+      { $group: { _id: "$diaryKey", count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const diaries = countsByDiary.map((item) => ({
+      diary: item._id,
+      count: item.count,
+    }));
+
+    return res.status(200).json(diaries);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Error getting diaries counts",
       error: error.message,
     });
   }
@@ -513,8 +729,10 @@ module.exports = {
   editDiary,
   deleteLetters,
   listLetters,
+  listDiaryLetters,
   searchLettersByTitle,
   shareLetter,
   getUserDiaries,
+  getUserDiariesWithCounts,
   countLetters,
 };

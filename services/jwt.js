@@ -20,7 +20,7 @@ createToken = (user) => {
     role: user.role,
     image: user.image,
     created_at: user.created_at,
-    iat: moment().unix(), // Momento en el que se crea el payload
+    iat: moment().unix(), // Moment when the payload is created
     ex: moment().add(10, "days").unix(), // Session expiration date
   };
 

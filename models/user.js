@@ -70,7 +70,7 @@ const UserSchema = Schema(
     },
     image: {
       type: String,
-      default: "default.png",
+      default: null,
     },
     created_at: {
       type: Date,
