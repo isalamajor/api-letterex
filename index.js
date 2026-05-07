@@ -33,8 +33,6 @@ const UserRoutes = require("./routes/user");
 const LetterRoutes = require("./routes/letter");
 const FollowRoutes = require("./routes/follow");
 const CorrectedLetterRoutes = require("./routes/correctedLetter");
-const CommunityRoutes = require("./routes/community");
-const SuggestedTopicRoutes = require("./routes/suggestedTopic");
 
 app.use(
   "/uploads/profile_pictures",
@@ -44,8 +42,6 @@ app.use("/api/user", UserRoutes);
 app.use("/api/letter", LetterRoutes);
 app.use("/api/follow", FollowRoutes);
 app.use("/api/corrected", CorrectedLetterRoutes);
-app.use("/api/community", CommunityRoutes);
-app.use("/api/suggested-topic", SuggestedTopicRoutes);
 
 // Middleware para manejar rutas no encontradas (404)
 app.use((req, res, next) => {

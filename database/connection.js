@@ -3,7 +3,8 @@ const mongoose = require("mongoose");
 // Esperar a conectar con mongoose
 const connection = async () => {
   try {
-    await mongoose.connect("mongodb://localhost:27017/letterex");
+    const uri = process.env.MONGODB_ATLAS_URI;
+    await mongoose.connect(uri);
     console.log("Connection to database successful");
   } catch (error) {
     console.log(error);

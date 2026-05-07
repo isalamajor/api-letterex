@@ -39,4 +39,4 @@ const FriendRequestSchema = Schema(
   },
 );
 
-module.exports = model("FriendRequest", FriendRequestSchema, "FriendRequests");
+module.exports = model("FriendRequest", FriendRequestSchema, "friend_requests");

@@ -82,5 +82,5 @@ const CorrectedletterSchema = new Schema(
 module.exports = model(
   "Correctedletter",
   CorrectedletterSchema,
-  "correctedletters",
+  "corrected_letters",
 );
