@@ -21,6 +21,10 @@ app.use(
   }),
 );
 
+console.log(
+  `Receiving requests from ${process.env.FRONTEND_URL || "http://localhost:3000"}`,
+);
+
 // Convert request body data into JavaScript objects
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // Convert form-urlencoded data into JavaScript objects

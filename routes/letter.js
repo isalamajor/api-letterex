@@ -4,7 +4,6 @@ const LetterController = require("../controllers/letter");
 const auth = require("../middlewares/auth");
 
 // Define routes
-console.log(LetterController);
 router.post("/new", auth.authentificate, LetterController.saveLetter); // Save a letter
 router.get("/view/:letterId", auth.authentificate, LetterController.viewLetter); // Get info and content
 router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Edit a letter
