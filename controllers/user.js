@@ -379,13 +379,14 @@ const login = async (req, res) => {
   userData.countCorrectedLetter = countCorrectedLetter;
   userData.profilePictureUrl = buildProfilePictureUrl(userData);
 
+  const isProduction = process.env.NODE_ENV === "production";
   // Success
   return res
     .cookie("authToken", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // HTTPS in production
-      sameSite: "strict",
-      maxAge: 5 * 24 * 60 * 60 * 1000, // 5  days
+      secure: isProduction, // HTTPS in production
+      sameSite: isProduction ? "none" : "lax",
+      maxAge: 2 * 24 * 60 * 60 * 1000, // 2  days
     })
     .status(200)
     .json({
