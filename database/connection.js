@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-// Esperar a conectar con mongoose
+// Wait for Mongoose to connect
 const connection = async () => {
   try {
     const uri = process.env.MONGODB_ATLAS_URI;

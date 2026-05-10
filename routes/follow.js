@@ -3,7 +3,7 @@ const router = express.Router();
 const FollowController = require("../controllers/follow");
 const auth = require("../middlewares/auth");
 
-// Definir rutas
+// Define routes
 router.post("/add/:id", auth.authentificate, FollowController.saveFollow);
 router.delete(
   "/unfollow/:id",
@@ -54,5 +54,5 @@ router.post(
   FollowController.rejectFriendRequest,
 ); // OK
 
-// Exportar router
+// Export router
 module.exports = router;

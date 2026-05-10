@@ -4,7 +4,6 @@
   "description": "API para app cartas",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon index.js",
     "start": "node index.js",
     "localdb": "powershell -ExecutionPolicy Bypass -File ./setup.ps1"

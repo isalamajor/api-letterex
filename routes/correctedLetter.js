@@ -3,7 +3,7 @@ const router = express.Router();
 const CorrectedLetterController = require("../controllers/correctedLetter");
 const auth = require("../middlewares/auth");
 
-// Definir rutas
+// Define routes
 router.patch(
   "/send-back/:correctedLetterId",
   auth.authentificate,
@@ -13,7 +13,7 @@ router.get(
   "/corrections/:originalLetterId",
   auth.authentificate,
   CorrectedLetterController.getCorrectionsByLetter,
-); // Obtener correcciones que me han hecho
+); // Get corrections made to me
 router.get(
   "/correctedLetter/:correctedLetterId",
   auth.authentificate,
@@ -38,12 +38,12 @@ router.get(
   "/count/:id?",
   auth.authentificate,
   CorrectedLetterController.countCorrectedLetters,
-); // Contar cartas corregidas del usuario logeado o del id por idioma
+); // Count corrected letters for the logged-in user or the specified ID by language
 router.delete(
   "/:correctedLetterId",
   auth.authentificate,
   CorrectedLetterController.deleteCorrectedLetter,
-); // Delete corrected letter and original letter (only if author deleted it before)
+); // Delete corrected letter and original letter (only if the author deleted it before)
 
-// Exportar router
+// Export router
 module.exports = router;

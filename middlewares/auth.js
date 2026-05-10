@@ -30,7 +30,7 @@ exports.authentificate = (req, res, next) => {
       });
     }
 
-    // Add user data to request
+    // Add user data to the request
     req.user = payload;
   } catch (error) {
     res.clearCookie("authToken"); // Remove invalid token from client

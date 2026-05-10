@@ -6,9 +6,9 @@ const getLetterCorrectionById = async (req, res) => {
     const { correctedLetterId } = req.params;
 
     const correctedLetter = await CorrectedLetter.findById(correctedLetterId)
-      .populate("originalLetter", "-sharedWith -diary") // Trae toda la carta original
-      .populate("reviewer", "nickname image") // Trae el revisor
-      .populate("sender", "nickname image"); // Trae el remitente
+      .populate("originalLetter", "-sharedWith -diary") // Fetch the full original letter
+      .populate("reviewer", "nickname image") // Fetch the reviewer
+      .populate("sender", "nickname image"); // Fetch the sender
 
     if (!correctedLetter) {
       return res.status(404).json({ message: "Corrected letter not found." });
@@ -30,10 +30,10 @@ const getLetterCorrectionById = async (req, res) => {
 const updateCorrections = async (req, res) => {
   try {
     const { correctedLetterId } = req.params;
-    const { corrections } = req.body; // Array de correcciones que el revisor desea agregar
-    const { comments } = req.body; // Comentarios generales (opcional)
+    const { corrections } = req.body; // Array of corrections the reviewer wants to add
+    const { comments } = req.body; // General comments (optional)
 
-    // Verificar que se ha enviado un array de correcciones
+    // Verify that an array of corrections was sent
     if (
       comments === "" &&
       (!Array.isArray(corrections) || corrections.length === 0)
@@ -43,30 +43,30 @@ const updateCorrections = async (req, res) => {
         .json({ message: "Corrections must be an array and cannot be empty." });
     }
 
-    // Buscar la carta corregida
+    // Find the corrected letter
     const correctedLetter = await CorrectedLetter.findById(correctedLetterId);
     if (!correctedLetter) {
       return res.status(404).json({ message: "Corrected letter not found." });
     }
 
-    // Verificar que el usuario es el revisor
+    // Verify that the user is the reviewer
     if (correctedLetter.reviewer.toString() !== req.user.id) {
       return res.status(403).json({
         message: "You are not authorized to add corrections to this letter.",
       });
     }
 
-    // Verificar que la carta no ha sido enviada de vuelta
+    // Verify that the letter has not been sent back
     if (correctedLetter.sentBack) {
       return res.status(403).json({
         message: "Cannot add corrections to a letter that has been sent back.",
       });
     }
 
-    // Cambiar las correcciones actuales por las nuevas
+    // Replace the current corrections with the new ones
     correctedLetter.corrections = corrections;
 
-    // Si se han proporcionado comentarios, actualizarlos
+    // If comments were provided, update them
     if (comments) {
       correctedLetter.comments = comments;
     }
@@ -74,7 +74,7 @@ const updateCorrections = async (req, res) => {
     // Update correction date
     correctedLetter.corrected_at = Date.now();
 
-    // Guardar la carta corregida con las nuevas correcciones
+    // Save the corrected letter with the new corrections
     await correctedLetter.save();
 
     return res.status(200).json({
@@ -94,20 +94,20 @@ const sendBack = async (req, res) => {
     const { correctedLetterId } = req.params;
     const userId = req.user.id;
 
-    // Buscar la carta corregida
+    // Find the corrected letter
     const correctedLetter = await CorrectedLetter.findById(correctedLetterId);
     if (!correctedLetter) {
       return res.status(404).json({ message: "Corrected letter not found." });
     }
 
-    // Verificar que el usuario es el revisor
+    // Verify that the user is the reviewer
     if (correctedLetter.reviewer.toString() !== userId) {
       return res
         .status(403)
         .json({ message: "Unauthorized to send back this letter." });
     }
 
-    // Actualizar la carta corregida
+    // Update the corrected letter
     correctedLetter.sentBack = true;
     correctedLetter.corrected_at = Date.now();
 
@@ -129,7 +129,7 @@ const getCorrectionsByLetter = async (req, res) => {
   try {
     const { originalLetterId } = req.params;
 
-    // Buscar todas las cartas corregidas relacionadas con la original (MIS cartas que me corrigieron)
+    // Find all corrected letters related to the original one (letters corrected for me)
     const correctedLetters = await CorrectedLetter.find({
       originalLetter: originalLetterId,
       sentBack: true,
@@ -151,7 +151,7 @@ const getCorrectionsByLetter = async (req, res) => {
 const getReceivedLetters = async (req, res) => {
   try {
     const userId = req.user.id;
-    // Buscar todas las cartas a corregir donde el usuario es el revisor
+    // Find all letters to be corrected where the user is the reviewer
     const correctedLettersRaw = await CorrectedLetter.find({ reviewer: userId })
       .select(
         "originalLetter sender sentBack corrected_at received_at seen deleted",
@@ -164,7 +164,7 @@ const getReceivedLetters = async (req, res) => {
       (cl) => cl.originalLetter !== null,
     );
 
-    // Get list of unique senders
+    // Get the list of unique senders
     const uniqueSenders = [
       ...new Map(
         correctedLetters
@@ -204,12 +204,12 @@ const searchReceivedLetters = async (req, res) => {
     const searchTerm = typeof req.query.q === "string" ? req.query.q : "";
     const senderFilter =
       typeof req.query.sender === "string" ? req.query.sender : "";
-    const sentBackFilter = req.query.sentBack; // "true", "false", o undefined
+    const sentBackFilter = req.query.sentBack; // "true", "false", or undefined
     const page = Math.max(parseInt(req.query.page) || 1, 1);
     const itemsPerPage = Math.max(parseInt(req.query.itemsPerPage) || 10, 1);
     const skip = (page - 1) * itemsPerPage;
 
-    // Primero obtener todas las correctedLetters del usuario
+    // First, get all corrected letters for the user
     const allCorrectedLetters = await CorrectedLetter.find({ reviewer: userId })
       .populate("originalLetter", "-sharedWith -content -diary")
       .populate("sender", "_id image nickname")
@@ -217,7 +217,7 @@ const searchReceivedLetters = async (req, res) => {
 
     const validLetters = allCorrectedLetters.filter((cl) => cl.originalLetter);
 
-    // Filter by title if there's a search term
+    // Filter by title if there is a search term
     const searchRegex = new RegExp(
       searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
       "i",
@@ -235,7 +235,7 @@ const searchReceivedLetters = async (req, res) => {
       if (senderRegex && (!cl.sender || !senderRegex.test(cl.sender.nickname)))
         return false;
 
-      // Filtrar por sentBack
+      // Filter by sentBack
       if (sentBackFilter !== undefined) {
         const sentBackBool =
           sentBackFilter === "true" || sentBackFilter === true;
@@ -245,7 +245,7 @@ const searchReceivedLetters = async (req, res) => {
       return true;
     });
 
-    // Get list of unique senders from all letters (unfiltered)
+    // Get the list of unique senders from all letters (unfiltered)
     const uniqueSenders = [
       ...new Set(
         validLetters
@@ -259,7 +259,7 @@ const searchReceivedLetters = async (req, res) => {
     const totalLetters = validLetters.length;
     const totalFiltered = filteredLetters.length;
 
-    // Marcar como vistas
+    // Mark as seen
     await CorrectedLetter.updateMany({ reviewer: userId }, { seen: true });
     return res.status(200).json({
       status: "success",
@@ -285,7 +285,7 @@ const countCorrectedLetters = async (req, res) => {
   try {
     let userId = req.params.id;
 
-    // Si no hay ID en params, usar el autenticado
+    // If there is no ID in params, use the authenticated one
     if (!userId && req.user && req.user.id) {
       userId = req.user.id;
     }
@@ -300,9 +300,9 @@ const countCorrectedLetters = async (req, res) => {
     const correctedLetters = await CorrectedLetter.find({
       reviewer: userId,
       sentBack: true,
-    }).populate("originalLetter", "language"); // Solo traemos el campo language
+    }).populate("originalLetter", "language"); // Only fetch the language field
 
-    // Contar por idioma
+    // Count by language
     const countsByLanguage = correctedLetters.reduce((acc, doc) => {
       const lang = doc.originalLetter?.language;
       if (lang) {

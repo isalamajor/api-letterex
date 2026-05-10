@@ -1,15 +1,15 @@
 const multer = require("multer");
 
-// Store file in memory and upload with Cloudinary official SDK in controller.
+// Store the file in memory and upload it with the official Cloudinary SDK in the controller.
 const storage = multer.memoryStorage();
 
-// Verify extension and mimetype
+// Verify file extension and MIME type
 const fileFilter = (req, file, cb) => {
   const allowedTypes = /jpeg|jpg|png/;
   const mimetype = allowedTypes.test(file.mimetype);
 
   if (mimetype) {
-    cb(null, true); // Aceptar el archivo
+    cb(null, true); // Accept the file
   } else {
     cb(new Error("Formato de archivo no permitido. Solo JPEG, JPG y PNG."));
   }

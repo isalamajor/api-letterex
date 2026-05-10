@@ -4,7 +4,7 @@ const UserController = require("../controllers/user");
 const auth = require("../middlewares/auth");
 const uploads = require("../middlewares/uploads");
 
-// Definir rutas
+// Define routes
 router.post("/register", UserController.register);
 router.post("/login", UserController.login);
 router.post("/logout", UserController.logout);
@@ -38,5 +38,5 @@ router.delete(
   UserController.deleteAccount,
 );
 
-// Exportar router
+// Export router
 module.exports = router;

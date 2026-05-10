@@ -3,28 +3,32 @@ const router = express.Router();
 const LetterController = require("../controllers/letter");
 const auth = require("../middlewares/auth");
 
-// Definir rutas
+// Define routes
 console.log(LetterController);
-router.post("/new", auth.authentificate, LetterController.saveLetter); // Guardar una carta
-router.get("/view/:letterId", auth.authentificate, LetterController.viewLetter); // Obtener info y contenido
-router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Editar una carta
-router.put("/edit-diary", auth.authentificate, LetterController.editLetter); // Editar el diario de una carta
-router.delete("/delete/", auth.authentificate, LetterController.deleteLetters); // Eliminar una carta
-router.get("/list", auth.authentificate, LetterController.listLetters); // Listar todas las cartas del usuario
-router.get("/list/diary", auth.authentificate, LetterController.listDiaryLetters); // Listar cartas de un diario
+router.post("/new", auth.authentificate, LetterController.saveLetter); // Save a letter
+router.get("/view/:letterId", auth.authentificate, LetterController.viewLetter); // Get info and content
+router.put("/edit/:id", auth.authentificate, LetterController.editLetter); // Edit a letter
+router.put("/edit-diary", auth.authentificate, LetterController.editLetter); // Edit a letter's diary
+router.delete("/delete/", auth.authentificate, LetterController.deleteLetters); // Delete a letter
+router.get("/list", auth.authentificate, LetterController.listLetters); // List all the user's letters
+router.get(
+  "/list/diary",
+  auth.authentificate,
+  LetterController.listDiaryLetters,
+); // List letters in a diary
 router.get(
   "/list/search",
   auth.authentificate,
   LetterController.searchLettersByTitle,
-); // Buscar cartas por titulo y diario´
-router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Compartir una carta
-router.get("/diaries", auth.authentificate, LetterController.getUserDiaries); // Listar diarios del usuario
+); // Search letters by title and diary
+router.post("/share/:id", auth.authentificate, LetterController.shareLetter); // Share a letter
+router.get("/diaries", auth.authentificate, LetterController.getUserDiaries); // List the user's diaries
 router.get(
   "/diaries/counts",
   auth.authentificate,
   LetterController.getUserDiariesWithCounts,
-); // Listar diarios con conteo de cartas
-router.get("/count/:id?", auth.authentificate, LetterController.countLetters); // Contar cartas del usuario logeado o del id por idioma
+); // List diaries with letter counts
+router.get("/count/:id?", auth.authentificate, LetterController.countLetters); // Count the logged-in user's letters or the specified user's letters by language
 
-// Exportar router
+// Export router
 module.exports = router;

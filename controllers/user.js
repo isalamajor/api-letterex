@@ -262,7 +262,7 @@ const register = async (req, res) => {
       });
     }
 
-    // Evitar usuarios duplicados
+    // Prevent duplicate users
     let users = await User.find({ email: params.email });
     if (users.length > 0) {
       return res.status(400).json({
@@ -288,7 +288,7 @@ const register = async (req, res) => {
       password: hashedPassword,
     });
 
-    // Guardar usuario en BD
+    // Save the user to the database
     const userSaved = await user.save();
 
     // Success
@@ -320,7 +320,7 @@ const login = async (req, res) => {
     });
   }
 
-  // Buscar usuario con ese email (params.email puede contener el email o el nickname)
+  // Find the user with that email (params.email may contain the email or the nickname)
   let user = await User.findOne({ email: params.email });
   if (!user) {
     user = await User.findOne({ nickname: params.email });
@@ -342,7 +342,7 @@ const login = async (req, res) => {
     });
   }
 
-  // Generar token JWT
+  // Generate JWT token
   const token = jwt.createToken(user);
 
   // Remove password and role from return object
@@ -350,7 +350,7 @@ const login = async (req, res) => {
   delete userData.password;
   delete userData.role;
 
-  // Obtener countLetters y Transformar el resultado a objeto { idioma: count }
+  // Get countLetters and transform the result into an object { language: count }
   const countsByLanguage = await Letter.aggregate([
     { $match: { author: user.id } },
     { $group: { _id: "$language", count: { $sum: 1 } } },
@@ -360,13 +360,13 @@ const login = async (req, res) => {
     return acc;
   }, {});
 
-  // Obtener CorrectedLetters y Transformar el resultado a objeto { idioma: count }
+  // Get corrected letters and transform the result into an object { language: count }
   const correctedLetters = await CorrectedLetter.find({
     reviewer: user.id,
     sentBack: true,
   }).populate("originalLetter", "language");
 
-  // Contar por idioma
+  // Count by language
   const countCorrectedLetter = correctedLetters.reduce((acc, doc) => {
     const lang = doc.originalLetter?.language;
     if (lang) {
@@ -396,10 +396,10 @@ const login = async (req, res) => {
 };
 
 const profile = async (req, res) => {
-  // Get user id parameter
+  // Get user ID parameter
   let id = req.params.id;
 
-  // Si no hay id utilizar el del token
+  // If there is no id, use the one from the token
   if (!id && req.user && req.user.id) {
     id = req.user.id;
   }
@@ -411,7 +411,7 @@ const profile = async (req, res) => {
     });
   }
 
-  // Obtener usuario de BD
+  // Get the user from the database
   const user = await User.findById(id);
   if (!user) {
     return res.status(404).json({
@@ -462,7 +462,7 @@ const profile = async (req, res) => {
     return acc;
   }, {});
 
-  // Remove password and role from return object
+  // Remove password and role from the returned object
   const userResponse = user.toObject(); // Convert Mongoose document to plain object
   userResponse.profilePictureUrl = buildProfilePictureUrl(userResponse);
   userResponse.countLetters = countLetters;
@@ -473,7 +473,7 @@ const profile = async (req, res) => {
   delete userResponse.password;
   delete userResponse.role;
 
-  // Devolver usuario
+  // Return the user
   return res.status(200).json({
     status: "success",
     user: userResponse,
@@ -522,7 +522,7 @@ const listUsers = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    // Obtener ID del usuario desde el token (autenticado previamente)
+    // Get the user ID from the token (authenticated beforehand)
     const userId = req.user.id;
 
     // Get request data
@@ -539,14 +539,14 @@ const update = async (req, res) => {
           "No puedes actualizar ni la contraseña, ni el nickname ni el email desde esta función",
       });
     }
-    // Actualizar el usuario en la base de datos
+    // Update the user in the database
     const updatedUser = await User.findByIdAndUpdate(
-      userId, // Filtro por el ID del usuario
-      updateData, // Datos a actualizar
-      { new: true }, // Devuelve el usuario actualizado
+      userId, // Filter by the user's ID
+      updateData, // Data to update
+      { new: true }, // Return the updated user
     );
 
-    // Validar que el usuario exista y haya sido actualizado
+    // Validate that the user exists and was updated
     if (!updatedUser) {
       return res.status(404).json({
         status: "error",
@@ -554,7 +554,7 @@ const update = async (req, res) => {
       });
     }
 
-    // Eliminar datos sensibles del objeto devuelto
+    // Remove sensitive data from the returned object
     const userResponse = updatedUser.toObject();
     delete userResponse.password;
     delete userResponse.role;
@@ -576,7 +576,7 @@ const update = async (req, res) => {
 
 const changePassword = async (req, res) => {
   try {
-    // Obtener el ID del usuario autenticado desde el token
+    // Get the authenticated user's ID from the token
     const userId = req.user.id;
 
     // Get request parameters
@@ -591,7 +591,7 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // Buscar al usuario en la base de datos
+    // Find the user in the database
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
@@ -667,7 +667,7 @@ const uploadProfilePicture = async (req, res) => {
       ],
     });
 
-    // Guardar la URL en la base de datos
+    // Save the URL in the database
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       {
@@ -714,7 +714,7 @@ const deleteProfilePicture = async (req, res) => {
     const profilePicturePublicId = `letterex/profile_pictures/${userId}`;
     await cloudinary.uploader.destroy(profilePicturePublicId);
 
-    // Actualizar campos al estado por defecto
+    // Reset fields to their default state
     user.image = "default.png";
     await user.save();
 
@@ -736,7 +736,7 @@ const getProfilePicture = async (req, res) => {
   try {
     const user = await User.findById(userId);
 
-    // If user has a Cloudinary URL, redirect directly to it.
+    // If the user has a Cloudinary URL, redirect directly to it.
     if (user && user.image && /^https?:\/\//i.test(user.image)) {
       return res.redirect(user.image);
     }
@@ -745,7 +745,7 @@ const getProfilePicture = async (req, res) => {
     const imageName = user && user.image ? user.image : "default.png";
     const filePath = path.resolve(`./uploads/profile_pictures/${imageName}`);
 
-    // Intentar enviar archivo, si no existe, usar default
+    // Try sending the file; if it does not exist, use the default one
     try {
       await fs.promises.access(filePath);
       return res.sendFile(filePath);
@@ -765,7 +765,7 @@ const getProfilePicture = async (req, res) => {
 
 const searchUsers = async (req, res) => {
   try {
-    // Get search term from parameters
+    // Get the search term from parameters
     const searchTerm = req.query.q;
     if (!searchTerm) {
       return res.status(400).json({
@@ -785,11 +785,11 @@ const searchUsers = async (req, res) => {
     const users = await User.find({
       $or: [{ nickname: searchRegex }, { email: searchRegex }],
     })
-      .select("-password -role") // Excluir datos sensibles
-      .sort("_id") // Ordenar por ID
+      .select("-password -role") // Exclude sensitive data
+      .sort("_id") // Sort by ID
       .paginate(page, itemsPerPage);
 
-    // Contar total de usuarios coincidentes
+    // Count total matching users
     const totalUsers = await User.countDocuments({
       $or: [{ nickname: searchRegex }, { email: searchRegex }],
     });
@@ -819,9 +819,9 @@ const checkNickname = async (req, res) => {
     return res.status(400).json({ status: -1, message: "Falta el nickname" });
   }
 
-  const user = await User.findOne({ nickname }); // User con ese nickname
+  const user = await User.findOne({ nickname }); // User with that nickname
 
-  return res.status(200).json({ status: 0, inUse: !!user }); // Returns true if nickname is in use, false if not
+  return res.status(200).json({ status: 0, inUse: !!user }); // Returns true if the nickname is in use, false otherwise
 };
 
 const checkEmail = async (req, res) => {
@@ -834,14 +834,14 @@ const checkEmail = async (req, res) => {
 };
 
 const deleteAccount = async (req, res) => {
-  const userId = req.user.id; // Use .id if that's what you use in the rest of the code
+  const userId = req.user.id; // Use .id if that's what you use elsewhere in the code
   const password = req.body.password;
 
   if (!password) {
     return res.status(400).json({ status: -1, message: "Falta la contraseña" });
   }
 
-  // Verify password
+  // Verify the password
   const user = await User.findById(userId);
   if (!user) {
     return res
@@ -856,7 +856,7 @@ const deleteAccount = async (req, res) => {
       .json({ status: -1, message: "Contraseña incorrecta" });
   }
 
-  // Eliminar usuario de la base de datos
+  // Delete the user from the database
   const deleted = await User.findByIdAndDelete(userId);
 
   if (deleted) {

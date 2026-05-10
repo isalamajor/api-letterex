@@ -114,7 +114,7 @@ const UserSchema = Schema(
   },
 );
 
-// Exportar ambos modelos
+// Export both models
 const User = model("User", UserSchema, "users");
 
 module.exports = { User };

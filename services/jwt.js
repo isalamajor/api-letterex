@@ -8,7 +8,7 @@ const secret = process.env.SECRET_KEY_API;
 // Function to generate tokens
 createToken = (user) => {
   const payload = {
-    // User info that we'll have available in the session
+    // User information that will be available in the session
     id: user._id,
     nickname: user.nickname,
     email: user.email,
@@ -20,7 +20,7 @@ createToken = (user) => {
     role: user.role,
     image: user.image,
     created_at: user.created_at,
-    iat: moment().unix(), // Moment when the payload is created
+    iat: moment().unix(), // Time when the payload is created
     ex: moment().add(10, "days").unix(), // Session expiration date
   };
 

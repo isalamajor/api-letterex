@@ -9,7 +9,7 @@ const FriendRequestSchema = Schema(
       required: true,
     },
     receiver: {
-      // Usuario que recibe la solicitud
+      // User who receives the request
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,

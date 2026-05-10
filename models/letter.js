@@ -28,12 +28,12 @@ const LetterSchema = Schema(
       },
     },
     audio: {
-      // Filepath del audio
+      // Audio file path
       type: String,
     },
     sharedWith: [
       {
-        // Array with user IDs with whom it was shared
+        // Array of user IDs with whom it was shared
         type: Schema.Types.ObjectId,
         ref: "User",
       },

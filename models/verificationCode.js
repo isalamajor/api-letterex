@@ -45,7 +45,7 @@ const VerificationCodeSchema = Schema(
   },
 );
 
-// Eliminar documentos automaticamente cuando expiresAt se cumple
+// Automatically delete documents when expiresAt is reached
 VerificationCodeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const VerificationCode = model(

@@ -5,11 +5,11 @@ const CorrectionSchema = new Schema({
   textOriginal: {
     type: String,
     required: true,
-  }, // Texto original con el error
+  }, // Original text with the error
   textCorrected: {
     type: String,
     required: true,
-  }, // Texto corregido
+  }, // Corrected text
 
   startIndex: {
     type: Number,
@@ -27,12 +27,12 @@ const CorrectedletterSchema = new Schema(
       type: Schema.Types.ObjectId,
       ref: "Letter",
       required: true,
-    }, // Carta original
+    }, // Original letter
     reviewer: {
       type: Schema.Types.ObjectId,
       ref: "User",
       required: true,
-    }, // Usuario que corrige
+    }, // User who reviews
     sender: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -41,15 +41,15 @@ const CorrectedletterSchema = new Schema(
     sentBack: {
       type: Boolean,
       default: false,
-    }, // Corrector sent it back (can no longer be modified)
+    }, // Reviewer sent it back (can no longer be modified)
     seen: {
       type: Boolean,
       default: false,
-    }, // Si el usuario que le enviaron una nueva carta para corregir
-    corrections: [CorrectionSchema], // Array de correcciones
+    }, // If the user received a new letter to correct
+    corrections: [CorrectionSchema], // Array of corrections
     comments: {
       type: String,
-    }, // Comentarios generales (opcional)
+    }, // General comments (optional)
     corrected_at: {
       type: Date,
       default: Date.now,

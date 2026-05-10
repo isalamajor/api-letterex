@@ -5,9 +5,9 @@ const Follow = require("../models/follow");
 
 const saveLetter = async (req, res) => {
   try {
-    // Guardar contenido del body
-    const { title, content, diary, language, created_at } = req.body; // created_at formato "2025-01-30"
-    // Guardar contenido del body
+    // Save body content
+    const { title, content, diary, language, created_at } = req.body; // created_at format "2025-01-30"
+    // Save body content
     const now = new Date();
     const created_at_conv = new Date(
       created_at.year,
@@ -22,7 +22,7 @@ const saveLetter = async (req, res) => {
     const userId = req.user.id;
 
     if (!title || !content || !language || !created_at_conv) {
-      // created at formato "2025-01-30"
+      // created_at format "2025-01-30"
       return res.status(400).json({
         status: "error",
         message: "Title, content, date and language are required.",
@@ -59,7 +59,7 @@ const viewLetter = async (req, res) => {
     const { letterId } = req.params;
     const userId = req.user.id;
 
-    // Buscar la carta por su ID
+    // Find the letter by its ID
     const letter = await Letter.findById(letterId);
     if (!letter) {
       return res.status(404).json({ message: "Letter not found." });
@@ -75,12 +75,12 @@ const viewLetter = async (req, res) => {
         .json({ message: "Unauthorized to view this letter." });
     }
 
-    // Get nickname and image of users with whom the letter was shared
+    // Get the nickname and image of the users with whom the letter was shared
     const sharedWithDetails = await Promise.all(
       letter.sharedWith.map(async (friendId) => {
         const friend =
           await User.findById(friendId).select("_id nickname image");
-        return friend ? friend.toObject() : null; // Convertir a objeto normal o retornar null si no existe
+        return friend ? friend.toObject() : null; // Convert to a plain object or return null if it doesn't exist
       }),
     );
 
@@ -197,7 +197,7 @@ const deleteLetter = async (letterId) => {
       return -2;
     }
 
-    // If not shared, delete it physically
+    // If it was not shared, delete it permanently
     if (letter.sharedWith.length === 0) {
       await Letter.findByIdAndDelete(letterId);
       return 0;
@@ -252,13 +252,13 @@ const deleteLetters = async (req, res) => {
 const buildLettersWithCorrections = async (letters) => {
   return Promise.all(
     letters.map(async (letter) => {
-      // Obtener detalles de los usuarios con los que se comparte la carta
+      // Get details of the users with whom the letter is shared
       const sharedWithDetails = await Promise.all(
         letter.sharedWith.map(async (friendId) => {
           const friend = await User.findById(friendId).select("nickname image");
-          if (!friend) return null; // Si no existe el usuario, retornar null
+          if (!friend) return null; // If the user does not exist, return null
 
-          // Verificar si hay correcciones enviadas de vuelta por este usuario
+          // Check whether there are corrections sent back by this user
           const correctionSentBack = await CorrectedLetter.findOne({
             originalLetter: letter._id,
             reviewer: friendId,
@@ -316,7 +316,7 @@ const listLetters = async (req, res) => {
       { $sort: { created_at: -1 } },
       { $skip: skip },
       { $limit: itemsPerPage },
-      // 1. Unir con la colección de Usuarios para obtener detalles de los amigos
+      // 1. Join the Users collection to get friend details
       {
         $lookup: {
           from: "users",
@@ -325,7 +325,7 @@ const listLetters = async (req, res) => {
           as: "sharedWithDetails",
         },
       },
-      // 2. Unir con CorrectedLetter para ver si hay correcciones
+      // 2. Join with CorrectedLetter to see whether there are corrections
       {
         $lookup: {
           from: "correctedletters",
@@ -345,7 +345,7 @@ const listLetters = async (req, res) => {
           as: "corrections",
         },
       },
-      // 3. Formatear la salida final
+      // 3. Format the final output
       {
         $project: {
           id: "$_id",
@@ -366,7 +366,7 @@ const listLetters = async (req, res) => {
                 correctionSentBack: {
                   $in: ["$$friend._id", "$corrections.reviewer"],
                 },
-                // Buscamos el ID de la corrección específica de ese amigo
+                // We look up the ID of that friend's specific correction
                 correctedLetterId: {
                   $arrayElemAt: [
                     {
@@ -524,13 +524,13 @@ const shareLetter = async (req, res) => {
     const { sharedWith } = req.body;
     const userId = req.user.id;
 
-    // Buscar la carta original
+    // Find the original letter
     const letter = await Letter.findById(letterId);
     if (!letter) {
       return res.status(404).json({ message: "Letter not found." });
     }
 
-    // Verificar que el usuario es el autor de la carta
+    // Verify that the user is the author of the letter
     if (letter.author.toString() !== userId) {
       return res
         .status(403)
@@ -551,14 +551,14 @@ const shareLetter = async (req, res) => {
       });
     }
 
-    // Si no hay usuarios nuevos, retornar
+    // If there are no new users, return
     if (newUsersToShare.length === 0) {
       return res.status(400).json({
         message: "Letter already shared with these users.",
       });
     }
 
-    // Verify all target users are friends with the author before sharing.
+    // Verify that all target users are friends with the author before sharing.
     const friendshipChecks = await Promise.all(
       newUsersToShare.map(async (friendId) => {
         const friendship = await Follow.findOne({
@@ -582,11 +582,11 @@ const shareLetter = async (req, res) => {
       });
     }
 
-    // Actualizar la carta para agregar solo los usuarios nuevos
+    // Update the letter to add only the new users
     letter.sharedWith = [...letter.sharedWith, ...newUsersToShare];
     await letter.save();
 
-    // Crear un nuevo objeto CorrectedLetter solo para los usuarios nuevos
+    // Create a new CorrectedLetter object only for the new users
     const correctedLetters = await Promise.all(
       newUsersToShare.map(async (friendId) => {
         const newCorrectedLetter = new CorrectedLetter({
@@ -598,7 +598,7 @@ const shareLetter = async (req, res) => {
           received_at: Date.now(),
         });
 
-        // Guardar el nuevo CorrectedLetter
+        // Save the new CorrectedLetter
         return await newCorrectedLetter.save();
       }),
     );
@@ -620,7 +620,7 @@ const getUserDiaries = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // Obtener diarios unicos directamente en BD para evitar cargar todas las cartas en memoria
+    // Get unique diaries directly from the database to avoid loading all letters into memory
     const diaries = await Letter.distinct("diary", {
       author: userId,
       diary: { $exists: true, $nin: [null, ""] },
@@ -683,7 +683,7 @@ const countLetters = async (req, res) => {
   try {
     let userId = req.params.id;
 
-    // Si no hay ID en params, usar el autenticado
+    // If there is no ID in params, use the authenticated one
     if (!userId && req.user && req.user.id) {
       userId = req.user.id;
     }
@@ -696,13 +696,13 @@ const countLetters = async (req, res) => {
       });
     }
 
-    // Agrupar por idioma y contar
+    // Group by language and count
     const countsByLanguage = await Letter.aggregate([
       { $match: { author: userId } },
       { $group: { _id: "$language", count: { $sum: 1 } } },
     ]);
 
-    // Transformar el resultado a objeto { idioma: count }
+    // Transform the result into an object { language: count }
     const result = countsByLanguage.reduce((acc, item) => {
       acc[item._id] = item.count;
       return acc;
