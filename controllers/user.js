@@ -386,7 +386,7 @@ const login = async (req, res) => {
       httpOnly: true,
       secure: isProduction, // HTTPS in production
       sameSite: isProduction ? "none" : "lax",
-      partitioned: true,
+      partitioned: isProduction,
       maxAge: 2 * 24 * 60 * 60 * 1000, // 2  days
     })
     .status(200)
@@ -665,6 +665,7 @@ const uploadProfilePicture = async (req, res) => {
           width: 800,
           height: 800,
           crop: "limit",
+          format: "jpg",
         },
       ],
     });
